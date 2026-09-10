@@ -6,6 +6,7 @@ package com.fumi.voice.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -37,9 +39,12 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,13 +62,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fumi.voice.library.PlayRecord
 import com.fumi.voice.library.Playlist
+import com.fumi.voice.library.LibraryPrefs
 import com.fumi.voice.library.TrackMetadataParser
+import com.fumi.voice.library.TrackSort
 import com.fumi.voice.model.MidiTrack
 import com.fumi.voice.ui.components.EmptyState
 import com.fumi.voice.ui.components.SegmentedTabs
@@ -105,19 +113,28 @@ fun LibraryScreen(
     onImportFolder: () -> Unit,
     onOpenFile: () -> Unit,
     onCreatePlaylist: (String) -> Unit,
-    onCreatePlaylistAndAdd: (String, MidiTrack) -> Unit,
+    onCreatePlaylistAndAdd: (String, List<MidiTrack>) -> Unit,
     onRenamePlaylist: (Playlist, String) -> Unit,
     onDeletePlaylist: (Playlist) -> Unit,
     onRemoveFromPlaylist: (Playlist, MidiTrack) -> Unit,
     onAddToPlaylists: (List<MidiTrack>, List<Playlist>) -> Unit,
     onDeleteTrack: (MidiTrack) -> Unit,
+    onDeleteTracks: (List<MidiTrack>) -> Unit,
     onEditTrack: (MidiTrack, String?, String?) -> Unit,
     onExportTrack: (MidiTrack) -> Unit,
     onClearHistory: () -> Unit,
     onImportM3u: () -> Unit,
+    /** 把选中的文件导入曲库后，直接加进目标歌单。 */
+    onImportFilesIntoPlaylist: (Playlist) -> Unit,
     onExportPlaylistM3u: (Playlist) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    // 排序方式与升降序存在 SharedPreferences 里，下次进应用保持上次的选择
+    val sortPrefs = remember { LibraryPrefs(context) }
+    var sortMode by remember { mutableStateOf(sortPrefs.sortMode()) }
+    var sortAscending by remember { mutableStateOf(sortPrefs.ascending(sortMode)) }
+
     var section by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
     var trackPendingDelete by remember { mutableStateOf<MidiTrack?>(null) }
@@ -128,6 +145,19 @@ fun LibraryScreen(
     var openedArtist by remember { mutableStateOf<String?>(null) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var confirmingClearHistory by remember { mutableStateOf(false) }
+
+    // ---- 曲目批量选择 ----
+    var selecting by remember { mutableStateOf(false) }
+    var selectedPaths by remember { mutableStateOf(emptySet<String>()) }
+    var batchAddTracks by remember { mutableStateOf<List<MidiTrack>?>(null) }
+    var confirmingBatchDelete by remember { mutableStateOf(false) }
+    // 歌单详情里点「从曲库添加」时的目标歌单
+    var pickingLibraryFor by remember { mutableStateOf<Playlist?>(null) }
+
+    fun clearSelection() {
+        selecting = false
+        selectedPaths = emptySet()
+    }
 
     val openedPlaylist = playlists.firstOrNull { it.id == openedPlaylistId }
 
@@ -149,6 +179,12 @@ fun LibraryScreen(
             .sortedBy { it.first.lowercase() }
     }
 
+    // 排序只作用于「曲目」分区：歌单/艺术家/最近各自有既定顺序，
+    // 套上排序会把分组打散、把「最近」的语义破坏掉。
+    val sortedTracks = remember(visibleTracks, sortMode, sortAscending, playCounts) {
+        sortMode.apply(visibleTracks, sortAscending, playCounts)
+    }
+
     // 进入歌单详情
     if (openedPlaylist != null) {
         PlaylistDetailScreen(
@@ -158,6 +194,8 @@ fun LibraryScreen(
             onBack = { openedPlaylistId = null },
             onPlayQueue = onPlayQueue,
             onRemove = { track -> onRemoveFromPlaylist(openedPlaylist, track) },
+            onAddFromLibrary = { pickingLibraryFor = openedPlaylist },
+            onImportFiles = { onImportFilesIntoPlaylist(openedPlaylist) },
             onRename = { editingPlaylist = openedPlaylist },
             onExportM3u = { onExportPlaylistM3u(openedPlaylist) },
             onDelete = {
@@ -166,6 +204,19 @@ fun LibraryScreen(
             },
             modifier = modifier,
         )
+        // 从曲库多选添加。候选会先排掉歌单已有的曲目，避免「勾了却没加进去」。
+        pickingLibraryFor?.let { target ->
+            val existing = resolvePlaylist(target).map { it.fileName }.toSet()
+            PickLibraryTracksSheet(
+                tracks = tracks,
+                existingNames = existing,
+                onDismiss = { pickingLibraryFor = null },
+                onConfirm = { chosen ->
+                    onAddToPlaylists(chosen, listOf(target))
+                    pickingLibraryFor = null
+                },
+            )
+        }
         // 详情打开时，重命名弹窗仍可叠加显示。
         // 注意必须判空：RenamePlaylistDialog 把 null 当作「新建」，不判空会立刻弹出新建歌单弹窗。
         editingPlaylist?.let { target ->
@@ -197,11 +248,11 @@ fun LibraryScreen(
         )
         trackPendingAdd?.let { track ->
             AddToPlaylistDialog(
-                track = track,
+                tracks = listOf(track),
                 playlists = playlists,
                 onDismiss = { trackPendingAdd = null },
                 onCreateAndAdd = { name ->
-                    onCreatePlaylistAndAdd(name, track)
+                    onCreatePlaylistAndAdd(name, listOf(track))
                     trackPendingAdd = null
                 },
                 onConfirm = { chosen ->
@@ -256,7 +307,7 @@ fun LibraryScreen(
         ) { current ->
             when (current) {
                 0 -> TracksSection(
-                    tracks = visibleTracks,
+                    tracks = sortedTracks,
                     searchActive = keyword.isNotEmpty(),
                     loading = loading,
                     currentPath = currentPath,
@@ -269,6 +320,56 @@ fun LibraryScreen(
                     onRequestAddToPlaylist = { trackPendingAdd = it },
                     onRequestEdit = { trackPendingEdit = it },
                     onRequestExport = onExportTrack,
+                    selectable = selecting,
+                    selectedPaths = selectedPaths,
+                    onToggleSelect = { track ->
+                        selectedPaths = if (track.path in selectedPaths) {
+                            selectedPaths - track.path
+                        } else {
+                            selectedPaths + track.path
+                        }
+                    },
+                    onLongPressTrack = { track ->
+                        if (!selecting) {
+                            selecting = true
+                            selectedPaths = setOf(track.path)
+                        } else {
+                            selectedPaths = if (track.path in selectedPaths) {
+                                selectedPaths - track.path
+                            } else {
+                                selectedPaths + track.path
+                            }
+                        }
+                    },
+                    onEnterSelection = {
+                        selecting = true
+                        selectedPaths = emptySet()
+                    },
+                    onExitSelection = { clearSelection() },
+                    onToggleSelectAll = {
+                        selectedPaths = if (selectedPaths.size == sortedTracks.size) {
+                            emptySet()
+                        } else {
+                            sortedTracks.map { it.path }.toSet()
+                        }
+                    },
+                    onBatchAddToPlaylist = {
+                        batchAddTracks = sortedTracks.filter { it.path in selectedPaths }
+                    },
+                    onBatchDelete = { confirmingBatchDelete = true },
+                    sortMode = sortMode,
+                    sortAscending = sortAscending,
+                    onPickSort = { mode ->
+                        val ascending = sortPrefs.ascending(mode)
+                        sortMode = mode
+                        sortAscending = ascending
+                        sortPrefs.save(mode, ascending)
+                    },
+                    onToggleSortDirection = {
+                        val next = !sortAscending
+                        sortAscending = next
+                        sortPrefs.save(sortMode, next)
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -330,17 +431,57 @@ fun LibraryScreen(
 
     trackPendingAdd?.let { track ->
         AddToPlaylistDialog(
-            track = track,
+            tracks = listOf(track),
             playlists = playlists,
             onDismiss = { trackPendingAdd = null },
             onCreateAndAdd = { name ->
-                onCreatePlaylistAndAdd(name, track)
+                onCreatePlaylistAndAdd(name, listOf(track))
                 trackPendingAdd = null
             },
             onConfirm = { chosen ->
                 onAddToPlaylists(listOf(track), chosen)
                 trackPendingAdd = null
             },
+        )
+    }
+
+    // 批量：加入歌单。复用同一个弹窗，tracks 传多首即可。
+    batchAddTracks?.let { chosenTracks ->
+        AddToPlaylistDialog(
+            tracks = chosenTracks,
+            playlists = playlists,
+            onDismiss = { batchAddTracks = null },
+            onCreateAndAdd = { name ->
+                onCreatePlaylistAndAdd(name, chosenTracks)
+                batchAddTracks = null
+                clearSelection()
+            },
+            onConfirm = { chosenPlaylists ->
+                onAddToPlaylists(chosenTracks, chosenPlaylists)
+                batchAddTracks = null
+                clearSelection()
+            },
+        )
+    }
+
+    // 批量：从曲库移除。删除会同时移出所有歌单，所以必须二次确认。
+    if (confirmingBatchDelete) {
+        val targets = sortedTracks.filter { it.path in selectedPaths }
+        AlertDialog(
+            onDismissRequest = { confirmingBatchDelete = false },
+            title = { Text("移除 ${targets.size} 首曲目？", color = TextPrimary) },
+            text = { Text("这些曲目将从曲库中删除，并自动移出所有歌单。", color = TextSecondary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingBatchDelete = false
+                    onDeleteTracks(targets)
+                    clearSelection()
+                }) { Text("移除", color = AccentOrange) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingBatchDelete = false }) { Text("取消", color = TextSecondary) }
+            },
+            containerColor = CharcoalRaised,
         )
     }
 
@@ -459,8 +600,26 @@ private fun TracksSection(
     onRequestAddToPlaylist: (MidiTrack) -> Unit,
     onRequestEdit: (MidiTrack) -> Unit,
     onRequestExport: (MidiTrack) -> Unit,
+    // ---- 批量选择 ----
+    selectable: Boolean,
+    selectedPaths: Set<String>,
+    onToggleSelect: (MidiTrack) -> Unit,
+    /** 长按某行：没进选择模式就先进入并勾上它，已在选择模式就当作切换。 */
+    onLongPressTrack: (MidiTrack) -> Unit,
+    onEnterSelection: () -> Unit,
+    onExitSelection: () -> Unit,
+    onToggleSelectAll: () -> Unit,
+    onBatchAddToPlaylist: () -> Unit,
+    onBatchDelete: () -> Unit,
+    // ---- 排序 ----
+    sortMode: TrackSort,
+    sortAscending: Boolean,
+    onPickSort: (TrackSort) -> Unit,
+    onToggleSortDirection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var sortMenu by remember { mutableStateOf(false) }
+
     Column(modifier = modifier.fillMaxSize()) {
 
         if (tracks.isNotEmpty()) {
@@ -482,6 +641,58 @@ private fun TracksSection(
                     modifier = Modifier.weight(1f),
                 )
                 Text("${tracks.size} 首", style = TimecodeStyle, color = TextSecondary)
+                if (!selectable) {
+                    // 排序：图标 + 菜单，不占横向空间。
+                    // 点当前那项 = 翻转升降序，不用再加第二个按钮。
+                    Spacer(Modifier.width(6.dp))
+                    Box {
+                        Box(
+                            modifier = Modifier.size(36.dp).clip(CircleShape).clickable { sortMenu = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Default.SwapVert,
+                                "排序",
+                                tint = if (sortMode != TrackSort.FILE_NAME || sortAscending != sortMode.defaultAscending) {
+                                    Indigo
+                                } else {
+                                    TextSecondary
+                                },
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                            TrackSort.entries.forEach { mode ->
+                                val active = mode == sortMode
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (active) {
+                                                "${mode.label}  ${if (sortAscending) "↑" else "↓"}"
+                                            } else {
+                                                mode.label
+                                            },
+                                            color = if (active) Indigo else TextPrimary,
+                                        )
+                                    },
+                                    onClick = {
+                                        sortMenu = false
+                                        if (active) onToggleSortDirection() else onPickSort(mode)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "选择",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Indigo,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onEnterSelection)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    )
+                }
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
         }
@@ -531,6 +742,10 @@ private fun TracksSection(
                             onEdit = { onRequestEdit(track) },
                             onExport = { onRequestExport(track) },
                             onDelete = { onRequestDelete(track) },
+                            selectable = selectable,
+                            selected = track.path in selectedPaths,
+                            onToggleSelect = { onToggleSelect(track) },
+                            onLongPress = { onLongPressTrack(track) },
                             // 搜索过滤、删除曲目后，剩下的行滑到新位置而不是瞬移。
                             // 有 key 才能对上"是同一行换了位置"，所以 itemsIndexed
                             // 那里的 key 不能省。
@@ -542,29 +757,90 @@ private fun TracksSection(
         }
 
         if (tracks.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onImportFiles,
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
+            if (selectable) {
+                // 选择模式：底部这一行换成批量操作条。占的是同一块位置，
+                // 视线不用在"顶部按钮"和"底部列表"之间来回跳。
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 18.dp),
                 ) {
-                    Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("导入文件", style = MaterialTheme.typography.labelLarge)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "已选 ${selectedPaths.size} 首",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = if (selectedPaths.isEmpty()) TextSecondary else Indigo,
+                            modifier = Modifier.weight(1f),
+                        )
+                        val allSelected = selectedPaths.size == tracks.size
+                        Text(
+                            if (allSelected) "取消全选" else "全选",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Indigo,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onToggleSelectAll)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                        Text(
+                            "完成",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = TextSecondary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onExitSelection)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = onBatchAddToPlaylist,
+                            enabled = selectedPaths.isNotEmpty(),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Icon(Icons.Default.PlaylistAdd, null, tint = Indigo, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("加入歌单", style = MaterialTheme.typography.labelLarge)
+                        }
+                        OutlinedButton(
+                            onClick = onBatchDelete,
+                            enabled = selectedPaths.isNotEmpty(),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Icon(Icons.Default.Delete, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("移除", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
-                OutlinedButton(
-                    onClick = onImportFolder,
-                    modifier = Modifier.weight(1f).height(46.dp),
-                    shape = RoundedCornerShape(14.dp),
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(Icons.Default.Folder, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("导入文件夹", style = MaterialTheme.typography.labelLarge)
+                    OutlinedButton(
+                        onClick = onImportFiles,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("导入文件", style = MaterialTheme.typography.labelLarge)
+                    }
+                    OutlinedButton(
+                        onClick = onImportFolder,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Icon(Icons.Default.Folder, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("导入文件夹", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
@@ -586,24 +862,52 @@ private fun TrackRow(
     onEdit: () -> Unit,
     onExport: (() -> Unit)?,
     onDelete: (() -> Unit)?,
+    /** 批量选择模式：行首序号换成勾选框、整行点击=切换选中、右侧四个图标隐藏。 */
+    selectable: Boolean = false,
+    selected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
+    /** 长按进入批量选择并勾上当前这首（由调用方决定"还没进入就顺便进入"）。 */
+    onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .background(if (isCurrent) Indigo.copy(alpha = 0.14f) else Color.Transparent)
+            .combinedClickable(
+                onClick = { if (selectable) onToggleSelect() else onClick() },
+                onLongClick = onLongPress,
+            )
+            .background(
+                when {
+                    selectable && selected -> Indigo.copy(alpha = 0.18f)
+                    isCurrent -> Indigo.copy(alpha = 0.14f)
+                    else -> Color.Transparent
+                }
+            )
             .padding(start = 20.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 序号固定两位宽，避免两位数时整行抖动
-        Text(
-            "%02d".format(index + 1),
-            style = TimecodeStyle.copy(fontSize = 12.sp),
-            color = if (isCurrent) Indigo else TextSecondary,
-            modifier = Modifier.width(28.dp),
-            textAlign = TextAlign.Start,
-        )
+        if (selectable) {
+            // 勾选框占的宽度和序号一致（28dp），切换模式时整行内容不左右跳。
+            // 不能直接给 Icon 同时写 width + size：size 会把宽度也覆盖成 20dp。
+            Box(modifier = Modifier.width(28.dp), contentAlignment = Alignment.CenterStart) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = if (selected) "取消选择" else "选择",
+                    tint = if (selected) Indigo else TextSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        } else {
+            // 序号固定两位宽，避免两位数时整行抖动
+            Text(
+                "%02d".format(index + 1),
+                style = TimecodeStyle.copy(fontSize = 12.sp),
+                color = if (isCurrent) Indigo else TextSecondary,
+                modifier = Modifier.width(28.dp),
+                textAlign = TextAlign.Start,
+            )
+        }
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -633,32 +937,36 @@ private fun TrackRow(
             )
         }
 
-        Box(
-            modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onAddToPlaylist),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Default.PlaylistAdd, "加入歌单", tint = Indigo, modifier = Modifier.size(19.dp))
-        }
-        Box(
-            modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onEdit),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Default.Edit, "编辑艺术家/曲名", tint = TextSecondary, modifier = Modifier.size(18.dp))
-        }
-        if (onExport != null) {
+        // 选择模式下把四个操作图标收起来：整行的语义已经变成"勾选"，
+        // 再留一排可点的单曲操作容易误触，也让选中态的视觉变得嘈杂。
+        if (!selectable) {
             Box(
-                modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onExport),
+                modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onAddToPlaylist),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.FileDownload, "导出为音频", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.PlaylistAdd, "加入歌单", tint = Indigo, modifier = Modifier.size(19.dp))
             }
-        }
-        if (onDelete != null) {
             Box(
-                modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onDelete),
+                modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onEdit),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Delete, "移除", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Edit, "编辑艺术家/曲名", tint = TextSecondary, modifier = Modifier.size(18.dp))
+            }
+            if (onExport != null) {
+                Box(
+                    modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onExport),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.FileDownload, "导出为音频", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
+            }
+            if (onDelete != null) {
+                Box(
+                    modifier = Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onDelete),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Delete, "移除", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }

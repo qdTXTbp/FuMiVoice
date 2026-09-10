@@ -10,6 +10,9 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 - **音符瀑布**：钢琴卷帘式瀑布流，随播放实时滚动；可进入 **画中画小窗** 只保留瀑布播放
 - **SoundFont 管理**：内置 GeneralUser SoundFont，支持导入 / 下载 / 切换 SF2 音色库
 - **播放列表**：本地曲库、歌单管理、M3U 导入导出、播放历史
+  - 曲库批量管理：长按或「选择」进入多选，支持全选、批量加入歌单、批量移除
+  - 歌单批量导入：可从曲库多选添加，也可直接导入多个音频 / MIDI 文件
+  - 曲目排序：文件名 / 曲名 / 时长 / 文件大小 / 音符数 / 播放次数，可切升降序并记忆选择
 - **混音与音效**：通道混音台（音量 / 声像 / 静音 / 独奏）、均衡器、速度 / 音调、节拍器
 - **音频导出**：
   - WAV
@@ -22,7 +25,8 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 
 ## 下载
 
-- Release APK：**[FuMiVoice-1.0-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.0/FuMiVoice-1.0-release.apk)**
+- Release APK：**[FuMiVoice-1.0.1-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.1/FuMiVoice-1.0.1-release.apk)**
+- Release AAB（用于应用商店）：**[FuMiVoice-1.0.1-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.1/FuMiVoice-1.0.1-release.aab)**
 - Release 页面：https://github.com/qdTXTbp/FuMiVoice/releases
 
 > 当前仅提供 `arm64-v8a` 版本，最低支持 Android 7.0（API 24）。
@@ -75,7 +79,7 @@ FuMiVoice/
 │  ├─ src/main/cpp/      # LAME / MP3 JNI
 │  ├─ src/main/jniLibs/  # BASS arm64-v8a 动态库
 │  └─ src/main/assets/   # 内置 SoundFont
-├─ dist/                 # 发布 APK
+├─ dist/                 # 发布产物（APK / AAB）
 └─ build.gradle.kts
 ```
 

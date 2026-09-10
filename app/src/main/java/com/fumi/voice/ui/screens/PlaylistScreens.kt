@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -27,12 +28,19 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,12 +76,15 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     onPlayQueue: (List<MidiTrack>, Int) -> Unit,
     onRemove: (MidiTrack) -> Unit,
+    onAddFromLibrary: () -> Unit,
+    onImportFiles: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onExportM3u: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var confirmingDeletePlaylist by remember { mutableStateOf(false) }
+    var addingMenu by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize()) {
 
@@ -96,6 +107,26 @@ fun PlaylistDetailScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
             )
+            // 往歌单里批量添加入口。放菜单里而不是并排两个按钮——
+            // 这一行已经有重命名和删除，再塞两个文字按钮会挤成一条。
+            Box {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).clickable { addingMenu = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Add, "添加曲目", tint = Indigo)
+                }
+                DropdownMenu(expanded = addingMenu, onDismissRequest = { addingMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("从曲库添加", color = TextPrimary) },
+                        onClick = { addingMenu = false; onAddFromLibrary() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("导入文件", color = TextPrimary) },
+                        onClick = { addingMenu = false; onImportFiles() },
+                    )
+                }
+            }
             Text(
                 "重命名",
                 style = MaterialTheme.typography.labelMedium,
@@ -117,9 +148,25 @@ fun PlaylistDetailScreen(
             EmptyState(
                 icon = Icons.Default.MusicNote,
                 title = "歌单还是空的",
-                message = "回到「曲目」列表，点每行右侧的 ⊕ 把曲目加进来",
+                message = "从曲库挑几首加进来，或直接导入音频 / MIDI 文件",
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
+            // 空歌单时把两个导入入口直接摆出来：原来只有一句"回到曲目列表点 ⊕"，
+            // 用户得先退出去、再切到曲目、再逐首点，批量导入的意义就没了。
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedButton(onClick = onAddFromLibrary, modifier = Modifier.weight(1f)) {
+                    Text("从曲库添加", maxLines = 1)
+                }
+                Button(onClick = onImportFiles, modifier = Modifier.weight(1f)) {
+                    Text("导入文件", maxLines = 1)
+                }
+            }
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp),
@@ -280,10 +327,164 @@ fun RenamePlaylistDialog(
     )
 }
 
-/** 把一首曲目加入一个或多个歌单。 */
+/**
+ * 从曲库多选曲目，用于往歌单里批量添加。
+ *
+ * 已经在歌单里的曲目会被直接排除出候选：addTracks 本身会静默去重，
+ * 若还让用户勾选，点了确认却什么也没加，只会被当成 bug。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PickLibraryTracksSheet(
+    tracks: List<MidiTrack>,
+    existingNames: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<MidiTrack>) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var keyword by remember { mutableStateOf("") }
+    var chosen by remember { mutableStateOf(setOf<String>()) }
+
+    val candidates = remember(tracks, existingNames) {
+        tracks.filterNot { it.fileName in existingNames }
+    }
+    val visible = remember(candidates, keyword) {
+        val k = keyword.trim()
+        if (k.isEmpty()) {
+            candidates
+        } else {
+            candidates.filter {
+                it.title.contains(k, ignoreCase = true) ||
+                    it.fileName.contains(k, ignoreCase = true) ||
+                    it.artist?.contains(k, ignoreCase = true) == true
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = CharcoalRaised,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 22.dp)) {
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("从曲库添加", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(
+                        if (candidates.isEmpty()) "曲库里没有可添加的曲目"
+                        else "共 ${candidates.size} 首可选",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                }
+                // 全选只作用于"当前可见"，搜索过滤后不会把看不见的也选上
+                if (visible.isNotEmpty()) {
+                    val allChosen = visible.all { it.path in chosen }
+                    Text(
+                        if (allChosen) "取消全选" else "全选",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Indigo,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                val paths = visible.map { it.path }.toSet()
+                                chosen = if (allChosen) chosen - paths else chosen + paths
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = keyword,
+                onValueChange = { keyword = it },
+                singleLine = true,
+                placeholder = { Text("搜索曲名 / 艺术家 / 文件名", color = TextSecondary) },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFF2A2A33),
+                    unfocusedContainerColor = Color(0xFF2A2A33),
+                    cursorColor = Indigo,
+                ),
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            LazyColumn(modifier = Modifier.height(320.dp)) {
+                itemsIndexed(visible, key = { _, t -> t.path }) { _, track ->
+                    val picked = track.path in chosen
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                chosen = if (picked) chosen - track.path else chosen + track.path
+                            }
+                            .padding(vertical = 9.dp, horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = if (picked) Indigo else Divider,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                track.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (picked) Indigo else TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val artist = track.artist
+                            if (!artist.isNullOrBlank()) {
+                                Text(
+                                    artist,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                    Text("取消", color = TextSecondary)
+                }
+                Button(
+                    onClick = { onConfirm(candidates.filter { it.path in chosen }) },
+                    enabled = chosen.isNotEmpty(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (chosen.isEmpty()) "添加" else "添加 ${chosen.size} 首")
+                }
+            }
+        }
+    }
+}
+
+/** 把若干曲目加入一个或多个歌单。单首和批量共用这一个弹窗。 */
 @Composable
 fun AddToPlaylistDialog(
-    track: MidiTrack,
+    tracks: List<MidiTrack>,
     playlists: List<Playlist>,
     onDismiss: () -> Unit,
     onCreateAndAdd: (String) -> Unit,
@@ -298,7 +499,8 @@ fun AddToPlaylistDialog(
         text = {
             Column {
                 Text(
-                    track.title,
+                    // 单首显示曲名，多首显示数量
+                    if (tracks.size == 1) tracks.first().title else "已选 ${tracks.size} 首曲目",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     maxLines = 1,

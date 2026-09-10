@@ -157,6 +157,8 @@ fun FuMiVoiceApp(
     var sounds by remember { mutableStateOf<List<SoundFontInfo>>(emptyList()) }
     var message by remember { mutableStateOf<String?>(null) }
     var exportTrack by remember { mutableStateOf<MidiTrack?>(null) }
+    // 歌单详情点「导入文件」时的目标歌单：launcher 回调拿不到参数，只能先存起来
+    var pendingPlaylistImport by remember { mutableStateOf<Playlist?>(null) }
 
     val downloadStates by downloader.tasks.collectAsState()
     val downloadedIds by downloader.completed.collectAsState()
@@ -418,6 +420,33 @@ fun FuMiVoiceApp(
         if (uri != null) importM3uFromUri(uri)
     }
 
+    /**
+     * 歌单详情里的「导入文件」：先把选中的文件导入曲库，
+     * 再把导入成功的曲目直接加进目标歌单——用户在这一个动作里既导了文件又进了歌单，
+     * 不用"先回曲目页导入、再切回歌单逐首添加"。
+     */
+    val importIntoPlaylistPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        val target = pendingPlaylistImport
+        pendingPlaylistImport = null
+        if (uris.isEmpty() || target == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            libraryLoading = true
+            val result = withContext(Dispatchers.IO) { library.importAll(uris) }
+            tracks = withContext(Dispatchers.IO) { library.list() }
+            libraryLoading = false
+            if (result.imported.isNotEmpty()) {
+                withContext(Dispatchers.IO) { playlistManager.addTracks(target.id, result.imported) }
+            }
+            reloadPlaylists()
+            message = when {
+                result.imported.isEmpty() -> "导入失败，请确认是 .mid / .midi 文件"
+                else -> "已导入 ${result.imported.size} 首并加入「${target.name}」"
+            }
+        }
+    }
+
     // ---------- 布局 ----------
 
     // 小窗模式：不带顶栏、不带底部导航，整窗只留音符瀑布
@@ -506,18 +535,23 @@ fun FuMiVoiceApp(
                             message = "已创建歌单「$name」"
                         }
                     },
-                    // 弹窗上写的是「新建并加入」，就必须真的把这首加进去。
+                    // 弹窗上写的是「新建并加入」，就必须真的把歌单加进去。
                     // 之前这里只调了 onCreatePlaylist，结果歌单建出来是空的：
                     // 导出时说"里还没有曲目"、进详情页说"歌单还是空的"，
                     // 用户只能看到"新建成功了但什么都没发生"。
-                    onCreatePlaylistAndAdd = { name, track ->
+                    // 现在接受一个列表，批量加入时也走这一条路径。
+                    onCreatePlaylistAndAdd = { name, toAdd ->
                         scope.launch {
                             withContext(Dispatchers.IO) {
                                 val created = playlistManager.create(name)
-                                playlistManager.addTracks(created.id, listOf(track))
+                                playlistManager.addTracks(created.id, toAdd)
                             }
                             reloadPlaylists()
-                            message = "已新建歌单「$name」并加入「${track.title}」"
+                            message = if (toAdd.size == 1) {
+                                "已新建歌单「$name」并加入「${toAdd.first().title}」"
+                            } else {
+                                "已新建歌单「$name」并加入 ${toAdd.size} 首曲目"
+                            }
                         }
                     },
                     onRenamePlaylist = { playlist, name ->
@@ -556,6 +590,16 @@ fun FuMiVoiceApp(
                             message = "已从曲库移除「${track.title}」"
                         }
                     },
+                    onDeleteTracks = { targets ->
+                        if (targets.isNotEmpty()) {
+                            scope.launch {
+                                withContext(Dispatchers.IO) { targets.forEach { library.delete(it) } }
+                                reloadLibrary()
+                                reloadPlaylists()
+                                message = "已从曲库移除 ${targets.size} 首曲目"
+                            }
+                        }
+                    },
                     onEditTrack = { track, artist, title ->
                         scope.launch {
                             withContext(Dispatchers.IO) { metaStore.put(track.fileName, artist, title) }
@@ -579,6 +623,10 @@ fun FuMiVoiceApp(
                         )
                     },
                     onExportPlaylistM3u = { exportPlaylistM3u(it) },
+                    onImportFilesIntoPlaylist = { playlist ->
+                        pendingPlaylistImport = playlist
+                        importIntoPlaylistPicker.launch(arrayOf("*/*"))
+                    },
                 )
 
                 Tab.SOUNDFONT -> SoundFontScreen(
