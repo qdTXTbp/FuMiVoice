@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FuMiVoice</string>
+    <string name="widget_name">FuMiVoice 播放控制</string>
+    <string name="widget_description">在桌面控制播放/暂停、上一首、下一首，并显示音符瀑布</string>
+    <string name="widget_no_track">未在播放</string>
+    <string name="widget_subtitle_placeholder">FuMiVoice</string>
+    <string name="widget_waterfall">音符瀑布</string>
+    <string name="widget_prev">上一首</string>
+    <string name="widget_toggle">播放或暂停</string>
+    <string name="widget_next">下一首</string>
+</resources>

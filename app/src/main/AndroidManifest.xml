@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      只声明真正用到的权限。上架审核（Play 的 Data safety、国内商店的权限清单）
+      会逐条要求说明用途，声明了却用不到的会被当成"过度申请"打回。
+      已核实全项目只在运行时申请过 POST_NOTIFICATIONS：
+        · 选文件 / 选目录走的是 SAF 文档选择器，不需要任何存储权限
+        · 曲库只扫应用私有目录，导出也只写私有外部目录
+        · 下载音色库只需要 INTERNET；查询网络状态的 API 一处都没调用
+        · 播放靠前台服务保活，全项目没有任何 WakeLock 代码
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="true"
+        android:label="FuMiVoice"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.FuMiVoice"
+        android:supportsRtl="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="audio/midi" />
+                <data android:mimeType="audio/x-midi" />
+                <data android:mimeType="application/x-midi" />
+                <data android:mimeType="audio/sf2" />
+                <data android:mimeType="application/x-soundfont" />
+            </intent-filter>
+            <!--
+              播放列表：让文件管理器里双击 .m3u 能把 FuMiVoice 列进"打开方式"。
+              光靠 MIME 不够——不少文件管理器把 .m3u 报成 octet-stream，
+              所以再用 pathPattern 按后缀兜一层。
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="audio/x-mpegurl" />
+                <data android:mimeType="audio/mpegurl" />
+                <data android:mimeType="application/vnd.apple.mpegurl" />
+                <data android:host="*" android:pathPattern=".*\\.m3u" />
+                <data android:host="*" android:pathPattern=".*\\.m3u8" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".player.PlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <receiver
+            android:name=".widget.FumiWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_player_info" />
+        </receiver>
+    </application>
+
+</manifest>

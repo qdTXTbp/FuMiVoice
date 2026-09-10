@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 导出产物写在应用专属外部目录的 Music 下，无需任何存储权限 -->
+    <external-files-path
+        name="exported_music"
+        path="Music/" />
+    <files-path
+        name="internal_files"
+        path="." />
+    <cache-path
+        name="internal_cache"
+        path="." />
+</paths>

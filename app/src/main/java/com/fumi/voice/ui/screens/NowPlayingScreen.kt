@@ -1,0 +1,623 @@
+package com.fumi.voice.ui.screens
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.fumi.voice.player.ActiveNote
+import com.fumi.voice.player.MidiPlayerManager
+import com.fumi.voice.player.PlayState
+import com.fumi.voice.player.PlayerUiState
+import com.fumi.voice.player.RepeatMode
+import com.fumi.voice.ui.PianoWaterfall
+import com.fumi.voice.ui.components.AppCard
+import com.fumi.voice.ui.components.EmptyState
+import com.fumi.voice.ui.components.PillTag
+import com.fumi.voice.ui.theme.CharcoalRaised
+import com.fumi.voice.ui.theme.Divider
+import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Motion
+import com.fumi.voice.ui.theme.TextPrimary
+import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeStyle
+import com.fumi.voice.util.formatDuration
+import com.fumi.voice.util.formatTempo
+import kotlin.math.roundToInt
+
+/** 倍速档位，覆盖需求要求的 0.25x - 4x。 */
+private val TEMPO_STEPS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f)
+
+/** 播放页：钢琴瀑布 + 传输控制 + 倍速 / 音量。 */
+@Composable
+fun NowPlayingScreen(
+    player: MidiPlayerManager,
+    state: PlayerUiState,
+    activeNotes: List<ActiveNote>,
+    onPickMidi: () -> Unit,
+    onOpenSoundFonts: () -> Unit,
+    isInPip: Boolean = false,
+    onEnterPip: () -> Unit = {},
+    /** 是否驱动瀑布逐帧重绘；非当前标签页时关掉，省下后台重绘。 */
+    animateWaterfall: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val track = state.track
+    // 有曲目就算已选中；但只有乐谱才有音符可以画成瀑布
+    val hasTrack = track != null
+    val hasNotes = hasTrack && player.waterfallNotes.isNotEmpty()
+
+    /** 瀑布区的形态编号，见下面 AnimatedContent 处的说明。 */
+    val stage = when {
+        hasNotes -> 0
+        hasTrack -> 1
+        else -> 2
+    }
+
+    var showEqualizer by remember { mutableStateOf(false) }
+    var showMixer by remember { mutableStateOf(false) }
+
+    // 小窗模式：不给任何控件留位置，整窗只画音符瀑布
+    if (isInPip) {
+        Box(modifier = modifier.fillMaxSize().background(Color(0xFF141419))) {
+            if (hasNotes) {
+                PianoWaterfall(
+                    notes = player.waterfallNotes,
+                    currentTimeMs = state.positionMs,
+                    activeNotes = activeNotes,
+                    isPlaying = state.playState == PlayState.PLAYING,
+                    tempoMarks = player.waterfallTempoMarks,
+                    beatsPerBar = player.waterfallBeatsPerBar,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        return
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+
+        // ---------- 钢琴瀑布 ----------
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF141419)),
+        ) {
+            // 瀑布区有三种形态：有音符就画瀑布、纯音频文件给占位说明、
+            // 没选曲目给空状态。用一个序号描述它，切换形态时淡入淡出，
+            // 这样刚载入曲目时空状态不会"啪"地一下直接变成瀑布。
+            AnimatedContent(
+                targetState = stage,
+                transitionSpec = {
+                    fadeIn(animationSpec = Motion.spec(Motion.Standard)) togetherWith
+                        fadeOut(animationSpec = Motion.spec(Motion.Instant))
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "waterfallStage",
+            ) { current ->
+            when (current) {
+                0 -> PianoWaterfall(
+                    notes = player.waterfallNotes,
+                    currentTimeMs = state.positionMs,
+                    activeNotes = activeNotes,
+                    isPlaying = state.playState == PlayState.PLAYING,
+                    tempoMarks = player.waterfallTempoMarks,
+                    beatsPerBar = player.waterfallBeatsPerBar,
+                    modifier = Modifier.fillMaxSize(),
+                    animate = animateWaterfall,
+                )
+
+                // 音频文件（FLAC / WavPack）没有音符，给一个同风格的占位说明
+                1 -> Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        Icons.Default.GraphicEq,
+                        contentDescription = null,
+                        tint = TextSecondary.copy(alpha = 0.5f),
+                        modifier = Modifier.size(52.dp),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text("音频文件", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "没有 MIDI 音符数据，因此不显示瀑布",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                }
+
+                else -> EmptyState(
+                    icon = Icons.Default.MusicNote,
+                    title = "还没有选择曲目",
+                    message = "从曲库挑一首 MIDI，或直接打开本地文件，音符会落下来",
+                    modifier = Modifier.fillMaxSize(),
+                    action = {
+                        Button(
+                            onClick = onPickMidi,
+                            shape = RoundedCornerShape(24.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Indigo),
+                        ) {
+                            Text("打开 MIDI 文件")
+                        }
+                    },
+                )
+            }
+            }
+        }
+
+        // ---------- 曲目信息 ----------
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                // 曲名做交叉淡入淡出。key 用"曲名字符串"而不是曲目对象：
+                // 退场的那一份还能显示旧名字，直接读外层 track 的话
+                // 新旧两行会在切换的瞬间同时显示新曲名。
+                AnimatedContent(
+                    targetState = track?.title ?: "未选择曲目",
+                    transitionSpec = {
+                        fadeIn(animationSpec = Motion.spec(Motion.Standard)) togetherWith
+                            fadeOut(animationSpec = Motion.spec(Motion.Instant))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = "trackTitle",
+                ) { title ->
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    buildString {
+                        append(state.soundFontName?.substringBeforeLast('.') ?: "未装载音色库")
+                        if (track != null && track.noteCount > 0) append(" · ${track.noteCount} 音符")
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onEnterPip) {
+                Icon(
+                    Icons.Default.PictureInPictureAlt,
+                    contentDescription = "小窗播放",
+                    tint = Indigo,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            IconButton(onClick = { showMixer = true }) {
+                Icon(
+                    Icons.Default.GraphicEq,
+                    contentDescription = "混音台",
+                    tint = Indigo,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            // 均衡器图标的颜色跟着开关渐变，比"瞬间变色"更能表达这是个状态
+            val eqIconTint by animateColorAsState(
+                targetValue = if (player.equalizer.enabled) Indigo else TextSecondary,
+                animationSpec = Motion.spec(Motion.Standard),
+                label = "eqIconTint",
+            )
+            IconButton(onClick = { showEqualizer = true }) {
+                Icon(
+                    Icons.Default.Equalizer,
+                    contentDescription = "均衡器",
+                    tint = eqIconTint,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            IconButton(onClick = onOpenSoundFonts) {
+                Icon(
+                    Icons.Default.Tune,
+                    contentDescription = "切换音色",
+                    tint = Indigo,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // ---------- 进度 ----------
+        SeekBar(
+            positionMs = state.positionMs,
+            durationMs = state.durationMs,
+            enabled = hasTrack,
+            onSeek = { player.seekTo(it) },
+        )
+
+        // ---------- 传输控制 ----------
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { player.cycleRepeatMode() }) {
+                // 循环模式的三个图标之间淡入淡出，避免硬切
+                AnimatedContent(
+                    targetState = state.repeatMode,
+                    transitionSpec = {
+                        fadeIn(animationSpec = Motion.spec(Motion.Instant)) togetherWith
+                            fadeOut(animationSpec = Motion.spec(Motion.Instant))
+                    },
+                    label = "repeatIcon",
+                ) { mode ->
+                    Icon(
+                        imageVector = when (mode) {
+                            RepeatMode.SINGLE -> Icons.Default.RepeatOne
+                            RepeatMode.LIST -> Icons.Default.Repeat
+                            RepeatMode.SHUFFLE -> Icons.Default.Shuffle
+                        },
+                        contentDescription = when (mode) {
+                            RepeatMode.SINGLE -> "单曲循环"
+                            RepeatMode.LIST -> "列表循环"
+                            RepeatMode.SHUFFLE -> "随机播放"
+                        },
+                        tint = Indigo,
+                    )
+                }
+            }
+
+            IconButton(onClick = { player.previous() }, enabled = hasTrack) {
+                Icon(
+                    Icons.Default.SkipPrevious,
+                    contentDescription = "上一首",
+                    tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Indigo),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconButton(
+                    onClick = {
+                        if (hasTrack) player.togglePlayPause() else onPickMidi()
+                    },
+                    modifier = Modifier.size(64.dp),
+                ) {
+                    // 播放 / 暂停不是简单换个图标：新图标带一点缩放"弹"进来，
+                    // 看起来才像真的按下去了，而不是闪了一下
+                    AnimatedContent(
+                        targetState = state.playState == PlayState.PLAYING,
+                        transitionSpec = {
+                            (
+                                fadeIn(animationSpec = Motion.spec(Motion.Instant)) +
+                                    scaleIn(initialScale = 0.7f, animationSpec = Motion.spring())
+                                ) togetherWith fadeOut(animationSpec = Motion.spec(Motion.Instant))
+                        },
+                        label = "playPauseIcon",
+                    ) { playing ->
+                        Icon(
+                            if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (playing) "暂停" else "播放",
+                            tint = Color.White,
+                            modifier = Modifier.size(34.dp),
+                        )
+                    }
+                }
+            }
+
+            IconButton(onClick = { player.next() }, enabled = hasTrack) {
+                Icon(
+                    Icons.Default.SkipNext,
+                    contentDescription = "下一首",
+                    tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+
+            IconButton(onClick = { player.stop() }, enabled = hasTrack) {
+                Icon(
+                    Icons.Default.Stop,
+                    contentDescription = "停止",
+                    tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        // ---------- 播放调节：倍速 / 音调 / 节拍器 ----------
+        PlaybackAdjustCard(
+            tempo = state.tempo,
+            pitch = state.pitchSemitones,
+            metronomeOn = state.metronomeEnabled,
+            metronomeVolume = state.metronomeVolume,
+            metronomeAvailable = state.metronomeAvailable,
+            onTempoChange = { player.setTempo(it) },
+            onPitchChange = { player.setPitch(it) },
+            onMetronomeToggle = { player.setMetronomeEnabled(it) },
+            onMetronomeVolume = { player.setMetronomeVolume(it) },
+        )
+
+        // ---------- 音量 ----------
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.VolumeDown, contentDescription = "音量", tint = TextSecondary, modifier = Modifier.size(20.dp))
+            Slider(
+                value = state.volume,
+                onValueChange = { player.setVolume(it) },
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = Indigo,
+                    activeTrackColor = Indigo,
+                    inactiveTrackColor = Divider,
+                ),
+            )
+            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+        }
+
+        Spacer(Modifier.height(12.dp))
+    }
+
+    if (showMixer) {
+        MixerSheet(
+            player = player,
+            onDismiss = { showMixer = false },
+        )
+    }
+
+    if (showEqualizer) {
+        EqualizerSheet(
+            equalizer = player.equalizer,
+            onDismiss = { showEqualizer = false },
+        )
+    }
+}
+
+@Composable
+private fun SeekBar(
+    positionMs: Long,
+    durationMs: Long,
+    enabled: Boolean,
+    onSeek: (Long) -> Unit,
+) {
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableStateOf(0f) }
+
+    val progress = when {
+        dragging -> dragValue
+        durationMs > 0 -> (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+        else -> 0f
+    }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Slider(
+            value = progress,
+            onValueChange = {
+                dragging = true
+                dragValue = it
+            },
+            onValueChangeFinished = {
+                if (durationMs > 0) onSeek((dragValue * durationMs).toLong())
+                dragging = false
+            },
+            enabled = enabled,
+            colors = SliderDefaults.colors(
+                thumbColor = Indigo,
+                activeTrackColor = Indigo,
+                inactiveTrackColor = Divider,
+                disabledThumbColor = TextSecondary.copy(alpha = 0.4f),
+                disabledActiveTrackColor = Divider,
+                disabledInactiveTrackColor = Divider,
+            ),
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                formatDuration(if (dragging) (dragValue * durationMs).toLong() else positionMs),
+                style = TimecodeStyle,
+                color = TextSecondary,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                formatDuration(durationMs),
+                style = TimecodeStyle,
+                color = TextSecondary,
+                textAlign = TextAlign.End,
+            )
+        }
+    }
+}
+
+/**
+ * 播放调节卡片：倍速 / 音调 / 节拍器。
+ *
+ * 三者都属于"对当前这次播放做调整"，放同一张卡里比散成三个入口更好找，
+ * 也延续了原来「倍速」那张卡的位置和样式。
+ *
+ * 节拍器音量只在开启后才出现：平时不白占高度，同时暗示它只在开的时候才有意义。
+ */
+@Composable
+private fun PlaybackAdjustCard(
+    tempo: Float,
+    pitch: Int,
+    metronomeOn: Boolean,
+    metronomeVolume: Float,
+    metronomeAvailable: Boolean,
+    onTempoChange: (Float) -> Unit,
+    onPitchChange: (Int) -> Unit,
+    onMetronomeToggle: (Boolean) -> Unit,
+    onMetronomeVolume: (Float) -> Unit,
+) {
+    AppCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+
+            // ---- 倍速 ----
+            AdjustRow(label = "倍速", value = formatTempo(tempo)) {
+                Slider(
+                    // 找不到匹配档位时回落到 1x（索引 3），避免拖到一半文件被换掉时跳档
+                    value = TEMPO_STEPS.indexOfFirst { it == tempo }.let { if (it < 0) 3 else it }.toFloat(),
+                    onValueChange = { onTempoChange(TEMPO_STEPS[it.toInt()]) },
+                    valueRange = 0f..(TEMPO_STEPS.size - 1).toFloat(),
+                    steps = TEMPO_STEPS.size - 2,
+                    modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                    colors = adjustSliderColors(),
+                )
+            }
+
+            // ---- 音调：±12 半音（一个八度），与倍速互不影响 ----
+            AdjustRow(label = "音调", value = formatPitch(pitch)) {
+                Slider(
+                    value = pitch.toFloat(),
+                    onValueChange = { onPitchChange(it.roundToInt()) },
+                    valueRange = -12f..12f,
+                    steps = 23,
+                    modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                    colors = adjustSliderColors(),
+                )
+            }
+
+            // ---- 节拍器 ----
+            Row(
+                modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("节拍器", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+                Spacer(Modifier.weight(1f))
+                if (!metronomeAvailable) {
+                    // 节拍要靠曲子的速度表对齐，音频 / 模块没有，这里说清楚为什么点不动
+                    PillTag("仅 MIDI", TextSecondary)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Switch(
+                    checked = metronomeOn,
+                    onCheckedChange = onMetronomeToggle,
+                    enabled = metronomeAvailable,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Indigo,
+                        uncheckedThumbColor = TextSecondary,
+                        uncheckedTrackColor = CharcoalRaised,
+                        uncheckedBorderColor = TextSecondary,
+                    ),
+                )
+            }
+
+            AnimatedVisibility(visible = metronomeOn) {
+                AdjustRow(label = "音量", value = "${(metronomeVolume * 100).roundToInt()}%") {
+                    Slider(
+                        value = metronomeVolume,
+                        onValueChange = onMetronomeVolume,
+                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                        colors = adjustSliderColors(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 调节卡片里的一行：左侧固定标签，中间留给控件，右侧固定宽度的读数。 */
+@Composable
+private fun AdjustRow(
+    label: String,
+    value: String,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+        content()
+        Text(
+            value,
+            style = TimecodeStyle.copy(fontSize = 13.sp),
+            color = TextPrimary,
+            modifier = Modifier.width(46.dp),
+            textAlign = TextAlign.End,
+        )
+    }
+}
+
+/** 音调读数：带符号的半音数。 */
+private fun formatPitch(semitones: Int): String =
+    if (semitones > 0) "+$semitones" else "$semitones"
+
+@Composable
+private fun adjustSliderColors(): SliderColors = SliderDefaults.colors(
+    thumbColor = Indigo,
+    activeTrackColor = Indigo,
+    inactiveTrackColor = Divider,
+)
