@@ -21,8 +21,8 @@ android {
         applicationId = "com.fumi.voice"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.0.3"
 
         ndk {
             abiFilters += listOf("arm64-v8a")

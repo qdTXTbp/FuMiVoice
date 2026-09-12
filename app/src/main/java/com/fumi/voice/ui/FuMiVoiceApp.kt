@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +78,7 @@ import com.fumi.voice.ui.screens.ExportSheet
 import com.fumi.voice.ui.screens.LibraryScreen
 import com.fumi.voice.ui.screens.NowPlayingScreen
 import com.fumi.voice.ui.screens.SoundFontScreen
+import com.fumi.voice.ui.screens.CloudSyncScreen
 import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
@@ -94,6 +96,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     PLAY("播放", Icons.Default.Piano),
     LIBRARY("曲库", Icons.Default.LibraryMusic),
     SOUNDFONT("音色", Icons.Default.Tune),
+    CLOUD("云同步", Icons.Default.Cloud),
 }
 
 /**
@@ -647,6 +650,10 @@ fun FuMiVoiceApp(
                     },
                     onRefresh = { reloadSounds() },
                 )
+
+                Tab.CLOUD -> CloudSyncScreen(
+                    onRefresh = { reloadLibrary(); reloadPlaylists() },
+                )
             }
         }
 
@@ -777,6 +784,7 @@ private fun headerSubtitle(
     }
     Tab.LIBRARY -> if (trackCount > 0) "$trackCount 首曲目" else "曲库为空"
     Tab.SOUNDFONT -> playerState.soundFontName?.substringBeforeLast('.') ?: "未装载音色库"
+    Tab.CLOUD -> "云端同步"
 }
 
 /** 文件名里的非法字符换掉，避免建文件失败。 */

@@ -54,9 +54,12 @@ class MidiLibraryManager(
 
     val dir: File = File(context.filesDir, "midi").apply { if (!exists()) mkdirs() }
 
-    /** 列出曲库中的全部曲目。会解析 MIDI，请在 IO 线程调用。 */
+    /** 云同步下发的曲目单独存放，与本地导入的曲库分开，便于查看与清理 */
+    val cloudDir: File = File(dir, "cloud").apply { if (!exists()) mkdirs() }
+
+    /** 列出曲库中的全部曲目（含云同步子目录）。会解析 MIDI，请在 IO 线程调用。 */
     fun list(): List<MidiTrack> {
-        val tracks = (dir.listFiles() ?: emptyArray())
+        val tracks = ((dir.listFiles() ?: emptyArray()) + (cloudDir.listFiles() ?: emptyArray()))
             .filter { it.isFile && it.extension.lowercase() in EXTENSIONS && it.length() > 0 }
             .map { toTrack(it) }
             .sortedBy { it.title.lowercase() }

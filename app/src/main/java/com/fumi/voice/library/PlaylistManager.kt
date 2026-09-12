@@ -69,6 +69,19 @@ class PlaylistManager(private val context: Context) {
         return true
     }
 
+    /** 云端同步用：按 id 归并歌单（已存在则改写，否则新建），不破坏原有 createdAt。 */
+    fun upsertCloud(id: String, name: String, trackFileNames: List<String>) {
+        val all = read()
+        val idx = all.indexOfFirst { it.id == id }
+        val cleaned = name.trim().ifBlank { "云端歌单" }
+        if (idx >= 0) {
+            all[idx] = all[idx].copy(name = cleaned, trackFileNames = trackFileNames.distinct())
+        } else {
+            all.add(Playlist(id = id, name = cleaned, trackFileNames = trackFileNames.distinct(), createdAt = System.currentTimeMillis()))
+        }
+        write(all)
+    }
+
     /**
      * 往歌单里追加曲目，已存在的会被跳过。
      * @return 实际新增的数量
