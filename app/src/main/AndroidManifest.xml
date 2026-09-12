@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      应用内更新：下载新版 APK 后拉起系统安装界面。
+      Android 8 起该操作需要本权限（且用户还要在系统设置里为本应用打开
+      「安装未知应用」开关），应用会在未授权时引导用户去开启。
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".App"

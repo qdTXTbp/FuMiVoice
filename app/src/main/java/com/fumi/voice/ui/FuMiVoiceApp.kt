@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,6 +87,9 @@ import com.fumi.voice.ui.theme.Motion
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.util.DocumentTreeScanner
+import com.fumi.voice.update.AppUpdater
+import com.fumi.voice.ui.components.UpdateAvailableDialog
+import com.fumi.voice.ui.components.UpdateDownloadDialog
 import com.fumi.voice.widget.FumiWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -202,6 +206,62 @@ fun FuMiVoiceApp(
 
     fun reloadSounds() {
         sounds = app.soundFonts.list()
+    }
+
+    // ---------------- 应用更新 ----------------
+
+    // 发现的新版本（非空即弹窗）、是否正在检查、下载进度（已下/总长）
+    var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
+    var updateChecking by remember { mutableStateOf(false) }
+    var updateProgress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+
+    /**
+     * 检查更新。
+     *
+     * @param silent 启动时的自动检查：只在真有新版时弹窗，网络失败不打扰用户
+     * （国内直连 GitHub 偶尔抽风，每次启动都弹个"检查失败"会很烦）。
+     */
+    fun checkUpdate(silent: Boolean) {
+        if (updateChecking) return
+        updateChecking = true
+        scope.launch {
+            val result = runCatching {
+                // 检查走镜像，别卡住主线程
+                withContext(Dispatchers.IO) { AppUpdater.check(context) }
+            }
+            updateChecking = false
+            result
+                .onSuccess { info ->
+                    if (info != null) updateInfo = info
+                    else if (!silent) message = "已是最新版本（v${AppUpdater.currentVersionName(context)}）"
+                }
+                .onFailure { e -> if (!silent) message = e.message ?: "检查更新失败" }
+        }
+    }
+
+    /** 下载新版本并拉起系统安装器。 */
+    fun downloadAndInstall(info: AppUpdater.UpdateInfo) {
+        updateInfo = null
+        updateProgress = 0L to 0L
+        scope.launch {
+            val result = runCatching {
+                AppUpdater.download(context, info) { read, total ->
+                    // 回调在 IO 线程；进度写回 Compose 状态统一回到主线程
+                    scope.launch { updateProgress = read to total }
+                }
+            }
+            updateProgress = null
+            result
+                .onSuccess { apk ->
+                    val launched = runCatching { AppUpdater.install(context, apk) }.getOrDefault(false)
+                    message = if (launched) {
+                        "已打开系统安装界面，确认安装即可"
+                    } else {
+                        "请在系统设置里允许「安装未知应用」，再回来点一次更新"
+                    }
+                }
+                .onFailure { e -> message = e.message ?: "更新包下载失败" }
+        }
     }
 
     /**
@@ -450,6 +510,9 @@ fun FuMiVoiceApp(
         }
     }
 
+    // 启动时自动检查一次更新：只在真有新版时弹窗（静默失败）
+    LaunchedEffect(Unit) { checkUpdate(silent = true) }
+
     // ---------- 布局 ----------
 
     // 小窗模式：不带顶栏、不带底部导航，整窗只留音符瀑布
@@ -475,6 +538,8 @@ fun FuMiVoiceApp(
             onHeaderAction = {
                 openOnePicker.launch(arrayOf("audio/midi", "audio/x-midi", "application/x-midi", "*/*"))
             },
+            onCheckUpdate = { checkUpdate(silent = false) },
+            updateChecking = updateChecking,
         )
 
         // 展开/收起由 MessageBanner 内部做动画，这里只负责给值
@@ -698,6 +763,18 @@ fun FuMiVoiceApp(
             onDismiss = { exportTrack = null },
         )
     }
+
+    // 更新弹窗：发现新版本 → 用户确认 → 下载（进度）→ 拉起系统安装器
+    updateInfo?.let { info ->
+        UpdateAvailableDialog(
+            info = info,
+            onUpdate = { downloadAndInstall(info) },
+            onLater = { updateInfo = null },
+        )
+    }
+    updateProgress?.let { (read, total) ->
+        UpdateDownloadDialog(read = read, total = total)
+    }
 }
 
 /** 顶栏：实色主色背景 + 当前页标题 + 一行上下文副标题。 */
@@ -707,6 +784,8 @@ private fun AppHeader(
     playerState: com.fumi.voice.player.PlayerUiState,
     trackCount: Int,
     onHeaderAction: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    updateChecking: Boolean,
 ) {
     val current = Tab.entries[tab]
 
@@ -758,6 +837,23 @@ private fun AppHeader(
             ) {
                 IconButton(onClick = onHeaderAction) {
                     Icon(Icons.Default.FolderOpen, contentDescription = "打开单个 MIDI 文件", tint = Color.White)
+                }
+            }
+
+            // 「检查更新」放在云同步页：那一页是账号与云服务，更新同属"应用级"操作。
+            // 启动时会自动检查一次，这里是手动入口（检查中禁用，避免连点）。
+            AnimatedVisibility(
+                visible = current == Tab.CLOUD,
+                enter = fadeIn(animationSpec = Motion.spec(Motion.Quick)) +
+                    scaleIn(initialScale = 0.8f, animationSpec = Motion.spring()),
+                exit = fadeOut(animationSpec = Motion.spec(Motion.Instant)),
+            ) {
+                IconButton(onClick = onCheckUpdate, enabled = !updateChecking) {
+                    Icon(
+                        Icons.Default.SystemUpdateAlt,
+                        contentDescription = "检查更新",
+                        tint = if (updateChecking) TextOnPrimarySoft else Color.White,
+                    )
                 }
             }
         }
