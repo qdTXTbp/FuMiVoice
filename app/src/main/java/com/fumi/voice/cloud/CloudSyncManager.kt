@@ -289,18 +289,36 @@ class CloudSyncManager(private val context: Context) {
             cloudUpdated[id] = s.optLong("updatedAt", 0)
         }
 
+        // ---- 云端全量清单（含未变更项）----
+        // 上面的 songs 只含"有变化"的曲目；未变更曲目的 hasData 无从得知，
+        // 会被当成"云端没有"从而每次同步都重传整库。服务端因此额外下发 cloudMeta；
+        // 旧服务端不下发时退回原判定。
+        val cloudMetaArr = res.optJSONArray("cloudMeta")
+        val haveCloudAll = cloudMetaArr != null
+        val cloudAllData = HashMap<String, Boolean>()
+        val cloudAllUpdated = HashMap<String, Long>()
+        for (i in 0 until (cloudMetaArr?.length() ?: 0)) {
+            val s = cloudMetaArr?.optJSONObject(i) ?: continue
+            val id = s.optString("id")
+            if (id.isBlank()) continue
+            cloudAllData[id] = s.optBoolean("hasData", false)
+            cloudAllUpdated[id] = s.optLong("updatedAt", 0)
+        }
+
         // ---- 分批上传本地新增 / 云端只有空壳 / 本地更新的曲目 ----
         val toUpload = mutableListOf<String>()
         if (mode != "pull") {
             for (t in tracks) {
                 val id = t.fileName
-                val sv = cloudUpdated[id]
-                if (sv == null || hasData[id] != true || updatedByKey.getOrDefault(id, 0L) > sv) toUpload.add(id)
+                val sv = if (haveCloudAll) cloudAllUpdated[id] else cloudUpdated[id]
+                val hd = if (haveCloudAll) cloudAllData[id] else hasData[id]
+                if (sv == null || hd != true || updatedByKey.getOrDefault(id, 0L) > sv) toUpload.add(id)
             }
         }
         var uploaded = 0
         var missing = 0
         if (toUpload.isNotEmpty()) onProgress?.invoke("准备上传 ${toUpload.size} 首…")
+        else if (mode != "pull") onProgress?.invoke("本机曲目均无改动，无需上传")
         for ((idx, chunk) in toUpload.chunked(BATCH).withIndex()) {
             val arr = JSONArray()
             for (id in chunk) {
