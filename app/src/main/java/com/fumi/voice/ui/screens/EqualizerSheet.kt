@@ -55,6 +55,8 @@ import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
 
 /**
  * 均衡器底部弹层。
@@ -110,9 +112,9 @@ fun EqualizerSheet(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("均衡器", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(stringResource(R.string.eq_title), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(
-                        "10 段 · 每段 ±12 dB",
+                        stringResource(R.string.eq_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
@@ -207,13 +209,13 @@ fun EqualizerSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    if (presetIndex >= 0) "当前预设：${Equalizer.presets[presetIndex].name}" else "当前：自定义",
+                    if (presetIndex >= 0) stringResource(R.string.eq_current_preset, Equalizer.presets[presetIndex].name) else stringResource(R.string.eq_current_custom),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     modifier = Modifier.weight(1f),
                 )
                 TextButton(onClick = { applyPreset(0) }) {
-                    Text("恢复平坦", color = Indigo)
+                    Text(stringResource(R.string.eq_reset_flat), color = Indigo)
                 }
             }
         }

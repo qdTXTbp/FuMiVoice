@@ -84,7 +84,7 @@ fun CloudSyncScreen(
     var showTs by remember { mutableStateOf(false) }
 
     fun doAuth(register: Boolean) {
-        if (email.isBlank() || password.isBlank()) { error = "请输入邮箱与密码"; return }
+        if (email.isBlank() || password.isBlank()) { error = context.getString(R.string.cloud_enter_credentials); return }
         busy = true; error = null; lastResult = null; conflict = null
         scope.launch {
             val res = withContext(Dispatchers.IO) {
@@ -94,12 +94,12 @@ fun CloudSyncScreen(
             busy = false
             when {
                 !res.ok -> {
-                    error = res.error ?: "操作失败"
+                    error = res.error ?: context.getString(R.string.cloud_op_failed)
                     // 服务端要求人机验证时自动弹出验证框，否则用户不知道要先完成哪一步
                     if (res.error?.contains("人机验证") == true) showTs = true
                 }
                 res.conflict -> conflict = res // 本机与云端都有存档：让用户选择保留哪一侧
-                else -> { loggedIn = true; password = ""; message = if (register) "注册成功，已登录" else "登录成功"; onRefresh() }
+                else -> { loggedIn = true; password = ""; message = if (register) context.getString(R.string.cloud_registered) else context.getString(R.string.cloud_logged_in); onRefresh() }
             }
         }
     }
@@ -109,8 +109,8 @@ fun CloudSyncScreen(
         scope.launch {
             val res = withContext(Dispatchers.IO) { manager.resolveConflict(choose) }
             busy = false
-            if (res.ok) { conflict = null; loggedIn = true; password = ""; message = "已保留${if (choose == "cloud") "云端" else "本机"}存档"; onRefresh() }
-            else error = res.error ?: "操作失败"
+            if (res.ok) { conflict = null; loggedIn = true; password = ""; message = context.getString(R.string.cloud_kept_side, context.getString(if (choose == "cloud") R.string.cloud_side_cloud else R.string.cloud_side_local)); onRefresh() }
+            else error = res.error ?: context.getString(R.string.cloud_op_failed)
         }
     }
 
@@ -121,7 +121,7 @@ fun CloudSyncScreen(
             val c = withContext(Dispatchers.IO) { manager.counts() }
             busy = false
             counts = c
-            if (!c.ok) error = c.error ?: "读取存档信息失败"
+            if (!c.ok) error = c.error ?: context.getString(R.string.cloud_read_archive_failed)
             showSyncChoice = true
         }
     }
@@ -136,17 +136,17 @@ fun CloudSyncScreen(
             }
             lastResult = res; busy = false
             if (res.ok) {
-                message = "同步完成：上传 ${res.uploaded} 曲，下载 ${res.downloaded} 曲"
+                message = context.getString(R.string.cloud_sync_done, res.uploaded, res.downloaded)
                 showSyncChoice = false
                 onRefresh()
-            } else error = res.error ?: "同步失败"
+            } else error = res.error ?: context.getString(R.string.cloud_sync_failed)
         }
     }
 
     fun doLogout() {
         scope.launch {
             withContext(Dispatchers.IO) { manager.logout() }
-            loggedIn = false; password = ""; message = "已退出登录"
+            loggedIn = false; password = ""; message = context.getString(R.string.cloud_logged_out)
         }
     }
 
@@ -187,7 +187,7 @@ fun CloudSyncScreen(
             }
         }
         Text(
-            "把手机曲库与歌单上传到云端，并接收电脑端的新增与修改。",
+            stringResource(R.string.cloud_intro),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -197,29 +197,29 @@ fun CloudSyncScreen(
 
         if (conflict != null) {
             // 冲突：本机与云端都有存档，需选择保留哪一侧（另一侧将被覆盖）
-            Text("检测到歌单存档冲突", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.cloud_conflict_title), style = MaterialTheme.typography.titleSmall)
             Text(
-                "本机存档：${conflict!!.localSongs} 曲 / ${conflict!!.localN} 个歌单\n" +
-                    "云端存档：${conflict!!.cloudSongs} 曲 / ${conflict!!.cloudN} 个歌单\n" +
-                    "请选择保留哪一份；选择后另一份将被覆盖。",
+                stringResource(R.string.cloud_local_archive, conflict!!.localSongs, conflict!!.localN) +
+                    stringResource(R.string.cloud_cloud_archive, conflict!!.cloudSongs, conflict!!.cloudN) +
+                    stringResource(R.string.cloud_conflict_choice),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { resolveConflict("cloud") }, enabled = !busy) { Text("保留云端") }
-                Button(onClick = { resolveConflict("local") }, enabled = !busy) { Text(if (busy) "处理中…" else "保留本机") }
+                OutlinedButton(onClick = { resolveConflict("cloud") }, enabled = !busy) { Text(stringResource(R.string.cloud_keep_cloud)) }
+                Button(onClick = { resolveConflict("local") }, enabled = !busy) { Text(if (busy) stringResource(R.string.common_processing) else stringResource(R.string.cloud_keep_local)) }
             }
         } else if (loggedIn) {
             OutlinedTextField(
                 value = email,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("已登录账号") },
+                label = { Text(stringResource(R.string.cloud_signed_in_as)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(onClick = { askSync() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                Text(if (busy) "同步中…" else "立即同步")
+                Text(if (busy) stringResource(R.string.cloud_syncing) else stringResource(R.string.cloud_sync_now))
             }
             // 同步进度：阶段文案 + 已用时，避免长时间没有反馈时看起来像卡死
             if (busy) {
@@ -228,7 +228,7 @@ fun CloudSyncScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        progressText ?: "正在同步…",
+                        progressText ?: stringResource(R.string.cloud_syncing_progress),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -241,31 +241,31 @@ fun CloudSyncScreen(
             }
             lastResult?.let {
                 Text(
-                    "上传 ${it.uploaded} 曲 / 下载 ${it.downloaded} 曲",
+                    stringResource(R.string.cloud_result_summary, it.uploaded, it.downloaded),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (it.missing > 0) {
                     Text(
-                        "注意：有 ${it.missing} 首曲目在本机读不到文件内容，已跳过备份。",
+                        stringResource(R.string.cloud_missing_warning, it.missing),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
-            TextButton(onClick = { doLogout() }, enabled = !busy) { Text("退出登录") }
+            TextButton(onClick = { doLogout() }, enabled = !busy) { Text(stringResource(R.string.cloud_sign_out)) }
         } else {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("邮箱") },
+                label = { Text(stringResource(R.string.cloud_email)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("密码（注册需 8 位以上）") },
+                label = { Text(stringResource(R.string.cloud_password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
@@ -276,7 +276,7 @@ fun CloudSyncScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 OutlinedButton(onClick = { showTs = true }, enabled = !busy) {
-                    Text(if (tsToken.isNotBlank()) "人机验证已完成" else "进行人机验证")
+                    Text(if (tsToken.isNotBlank()) stringResource(R.string.cloud_captcha_done) else stringResource(R.string.cloud_captcha_go))
                 }
                 val hint = tsErr
                 if (hint != null) {
@@ -284,8 +284,8 @@ fun CloudSyncScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { doAuth(false) }, enabled = !busy) { Text("登录") }
-                OutlinedButton(onClick = { doAuth(true) }, enabled = !busy) { Text("注册") }
+                Button(onClick = { doAuth(false) }, enabled = !busy) { Text(stringResource(R.string.cloud_sign_in)) }
+                OutlinedButton(onClick = { doAuth(true) }, enabled = !busy) { Text(stringResource(R.string.cloud_sign_up)) }
             }
         }
 
@@ -302,40 +302,40 @@ fun CloudSyncScreen(
             (c0.cloudSongs + c0.cloudPlaylists) == 0 && (c0.localSongs + c0.localPlaylists) > 0
         AlertDialog(
             onDismissRequest = { if (!busy) showSyncChoice = false },
-            title = { Text("选择要使用的存档") },
+            title = { Text(stringResource(R.string.cloud_pick_archive)) },
             text = {
                 val c = counts
                 if (c != null && c.ok) {
                     Column {
-                        Text("本机存档：${c.localSongs} 曲 / ${c.localPlaylists} 个歌单", style = MaterialTheme.typography.bodySmall)
-                        Text("云端存档：${c.cloudSongs} 曲 / ${c.cloudPlaylists} 个歌单", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.cloud_local_archive_one, c.localSongs, c.localPlaylists), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.cloud_cloud_archive_one, c.cloudSongs, c.cloudPlaylists), style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "请选择以哪一份为准；选择后另一份将被覆盖。",
+                            stringResource(R.string.cloud_pick_archive_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (cloudEmpty) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                "云端存档为空，使用云端会清空本机存档，已禁用该选项。请选择「使用本机存档」上传。",
+                                stringResource(R.string.cloud_cloud_empty),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
                     }
                 } else {
-                    Text(if (busy) "正在读取存档…" else "未能读取存档信息")
+                    Text(if (busy) stringResource(R.string.cloud_reading_archive) else stringResource(R.string.cloud_read_failed))
                 }
             },
             confirmButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    OutlinedButton(onClick = { doSync("pull") }, enabled = !busy && !cloudEmpty) { Text("使用云端存档") }
-                    Button(onClick = { doSync("push") }, enabled = !busy) { Text(if (busy) "同步中…" else "使用本机存档") }
+                    OutlinedButton(onClick = { doSync("pull") }, enabled = !busy && !cloudEmpty) { Text(stringResource(R.string.cloud_use_cloud)) }
+                    Button(onClick = { doSync("push") }, enabled = !busy) { Text(if (busy) stringResource(R.string.cloud_syncing) else stringResource(R.string.cloud_use_local)) }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showSyncChoice = false }, enabled = !busy) { Text("取消") }
+                TextButton(onClick = { showSyncChoice = false }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -369,7 +369,7 @@ private fun TurnstileDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("人机验证") },
+        title = { Text(stringResource(R.string.cloud_captcha_title)) },
         text = {
             AndroidView(
                 modifier = Modifier.fillMaxWidth().height(320.dp),
@@ -398,6 +398,6 @@ private fun TurnstileDialog(
                 },
             )
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }

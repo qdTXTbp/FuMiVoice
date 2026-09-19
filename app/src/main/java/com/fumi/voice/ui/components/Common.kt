@@ -42,6 +42,8 @@ import com.fumi.voice.ui.theme.Motion
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
 
 /** 区块小标题：全大写感的细体，用来分隔列表分组。 */
 @Composable
@@ -317,7 +319,7 @@ fun MessageBanner(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                "知道了",
+                stringResource(R.string.common_got_it),
                 style = MaterialTheme.typography.labelMedium,
                 color = TextOnPrimarySoft,
                 modifier = Modifier

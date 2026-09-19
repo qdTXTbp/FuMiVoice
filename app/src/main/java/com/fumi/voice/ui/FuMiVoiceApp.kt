@@ -249,9 +249,9 @@ fun FuMiVoiceApp(
             result
                 .onSuccess { info ->
                     if (info != null) updateInfo = info
-                    else if (!silent) message = "已是最新版本（v${AppUpdater.currentVersionName(context)}）"
+                    else if (!silent) message = context.getString(R.string.app_up_to_date, AppUpdater.currentVersionName(context))
                 }
-                .onFailure { e -> if (!silent) message = e.message ?: "检查更新失败" }
+                .onFailure { e -> if (!silent) message = e.message ?: context.getString(R.string.app_check_update_failed) }
         }
     }
 
@@ -271,12 +271,12 @@ fun FuMiVoiceApp(
                 .onSuccess { apk ->
                     val launched = runCatching { AppUpdater.install(context, apk) }.getOrDefault(false)
                     message = if (launched) {
-                        "已打开系统安装界面，确认安装即可"
+                        context.getString(R.string.app_install_opened)
                     } else {
-                        "请在系统设置里允许「安装未知应用」，再回来点一次更新"
+                        context.getString(R.string.app_allow_unknown_sources)
                     }
                 }
-                .onFailure { e -> message = e.message ?: "更新包下载失败" }
+                .onFailure { e -> message = e.message ?: context.getString(R.string.app_update_download_failed) }
         }
     }
 
@@ -290,7 +290,7 @@ fun FuMiVoiceApp(
     fun exportPlaylistM3u(playlist: Playlist) {
         val list = runCatching { playlistManager.resolve(playlist, tracks) }.getOrDefault(emptyList())
         if (list.isEmpty()) {
-            message = "「${playlist.name}」里还没有曲目"
+            message = context.getString(R.string.app_playlist_empty, playlist.name)
             return
         }
         scope.launch {
@@ -304,14 +304,14 @@ fun FuMiVoiceApp(
                 }.getOrNull()
             }
             if (file == null) {
-                message = "导出失败，无法写入文件"
+                message = context.getString(R.string.app_export_write_failed)
                 return@launch
             }
             val shared = runCatching { shareFile(context, file, "audio/x-mpegurl") }
             message = if (shared.isSuccess) {
-                "已导出「${playlist.name}」，共 ${list.size} 首"
+                context.getString(R.string.app_exported_playlist, playlist.name, list.size)
             } else {
-                "已生成 ${file.name}，但分享失败"
+                context.getString(R.string.app_share_failed, file.name)
             }
         }
     }
@@ -387,18 +387,18 @@ fun FuMiVoiceApp(
                         ?.substringBeforeLast('.')
                         ?.trim()
                         ?.takeIf { it.isNotEmpty() }
-                        ?: "导入的播放列表"
+                        ?: context.getString(R.string.app_imported_playlist_fallback)
                     Triple(baseName, matched.toList(), entries.size)
                 }.getOrNull()
             }
 
             if (parsed == null) {
-                message = "无法读取该 M3U 文件"
+                message = context.getString(R.string.app_m3u_unreadable)
                 return@launch
             }
             val (baseName, matched, total) = parsed
             if (matched.isEmpty()) {
-                message = "M3U 里 $total 个条目都不在曲库中"
+                message = context.getString(R.string.app_m3u_no_match, total)
                 return@launch
             }
             withContext(Dispatchers.IO) {
@@ -408,9 +408,9 @@ fun FuMiVoiceApp(
             reloadPlaylists()
             val skipped = total - matched.size
             message = if (skipped > 0) {
-                "已导入歌单「$baseName」共 ${matched.size} 首，跳过 $skipped 首（不在曲库中）"
+                context.getString(R.string.app_m3u_imported_skipped, baseName, matched.size, skipped)
             } else {
-                "已导入歌单「$baseName」共 ${matched.size} 首"
+                context.getString(R.string.app_m3u_imported, baseName, matched.size)
             }
         }
     }
@@ -437,7 +437,7 @@ fun FuMiVoiceApp(
         } else {
             // 装载失败必须说出来。之前这里没有 else，点了曲目没反应也没提示，
             // 用户只会以为应用卡了——碰到 BASS 解不了的文件尤其容易踩。
-            message = "无法播放「${queue.getOrNull(index)?.title ?: queue[0].title}」，格式可能不受支持"
+            message = context.getString(R.string.app_cannot_play, queue.getOrNull(index)?.title ?: queue[0].title)
         }
     }
 
@@ -451,7 +451,7 @@ fun FuMiVoiceApp(
                 player.play()
                 goToTab(0)
             } else {
-                message = "无法打开该文件，可能不是有效的 MIDI"
+                message = context.getString(R.string.app_invalid_midi)
             }
         }
     }
@@ -467,9 +467,9 @@ fun FuMiVoiceApp(
             libraryLoading = false
             reloadPlaylists()
             message = when {
-                result.imported.isEmpty() -> "导入失败，请确认是 .mid / .midi 文件"
-                result.skipped > 0 -> "导入 ${result.imported.size} 首，跳过 ${result.skipped} 个无效文件"
-                else -> "已导入 ${result.imported.size} 首曲目"
+                result.imported.isEmpty() -> context.getString(R.string.app_import_failed_midi)
+                result.skipped > 0 -> context.getString(R.string.app_import_partial, result.imported.size, result.skipped)
+                else -> context.getString(R.string.app_imported_count, result.imported.size)
             }
         }
     }
@@ -485,9 +485,9 @@ fun FuMiVoiceApp(
             libraryLoading = false
             reloadPlaylists()
             message = if (result.imported.isEmpty()) {
-                "该文件夹里没有找到 MIDI 文件"
+                context.getString(R.string.app_folder_no_midi)
             } else {
-                "已导入 ${result.imported.size} 首曲目"
+                context.getString(R.string.app_imported_count, result.imported.size)
             }
         }
     }
@@ -520,8 +520,8 @@ fun FuMiVoiceApp(
             }
             reloadPlaylists()
             message = when {
-                result.imported.isEmpty() -> "导入失败，请确认是 .mid / .midi 文件"
-                else -> "已导入 ${result.imported.size} 首并加入「${target.name}」"
+                result.imported.isEmpty() -> context.getString(R.string.app_import_failed_midi)
+                else -> context.getString(R.string.app_imported_into_playlist, result.imported.size, target.name)
             }
         }
     }
@@ -661,7 +661,7 @@ fun FuMiVoiceApp(
                         scope.launch {
                             withContext(Dispatchers.IO) { playlistManager.create(name) }
                             reloadPlaylists()
-                            message = "已创建歌单「$name」"
+                            message = context.getString(R.string.app_playlist_created, name)
                         }
                     },
                     // 弹窗上写的是「新建并加入」，就必须真的把歌单加进去。
@@ -677,9 +677,9 @@ fun FuMiVoiceApp(
                             }
                             reloadPlaylists()
                             message = if (toAdd.size == 1) {
-                                "已新建歌单「$name」并加入「${toAdd.first().title}」"
+                                context.getString(R.string.app_playlist_created_added_one, name, toAdd.first().title)
                             } else {
-                                "已新建歌单「$name」并加入 ${toAdd.size} 首曲目"
+                                context.getString(R.string.app_playlist_created_added_many, name, toAdd.size)
                             }
                         }
                     },
@@ -693,7 +693,7 @@ fun FuMiVoiceApp(
                         scope.launch {
                             withContext(Dispatchers.IO) { playlistManager.delete(playlist.id) }
                             reloadPlaylists()
-                            message = "已删除歌单「${playlist.name}」"
+                            message = context.getString(R.string.app_playlist_deleted, playlist.name)
                         }
                     },
                     onRemoveFromPlaylist = { playlist, track ->
@@ -708,7 +708,7 @@ fun FuMiVoiceApp(
                                 chosenPlaylists.sumOf { playlistManager.addTracks(it.id, chosenTracks) }
                             }
                             reloadPlaylists()
-                            message = if (added > 0) "已加入 ${chosenPlaylists.size} 个歌单" else "这些曲目已在所选歌单中"
+                            message = if (added > 0) context.getString(R.string.app_added_to_playlists, chosenPlaylists.size) else context.getString(R.string.app_already_in_playlists)
                         }
                     },
                     onDeleteTrack = { track ->
@@ -716,7 +716,7 @@ fun FuMiVoiceApp(
                             withContext(Dispatchers.IO) { library.delete(track) }
                             reloadLibrary()
                             reloadPlaylists()
-                            message = "已从曲库移除「${track.title}」"
+                            message = context.getString(R.string.app_removed_track, track.title)
                         }
                     },
                     onDeleteTracks = { targets ->
@@ -725,7 +725,7 @@ fun FuMiVoiceApp(
                                 withContext(Dispatchers.IO) { targets.forEach { library.delete(it) } }
                                 reloadLibrary()
                                 reloadPlaylists()
-                                message = "已从曲库移除 ${targets.size} 首曲目"
+                                message = context.getString(R.string.app_removed_tracks, targets.size)
                             }
                         }
                     },
@@ -733,7 +733,7 @@ fun FuMiVoiceApp(
                         scope.launch {
                             withContext(Dispatchers.IO) { metaStore.put(track.fileName, artist, title) }
                             reloadLibrary()
-                            message = "已更新「${track.fileName}」的信息"
+                            message = context.getString(R.string.app_track_updated, track.fileName)
                         }
                     },
                     onExportTrack = { exportTrack = it },
@@ -741,7 +741,7 @@ fun FuMiVoiceApp(
                         scope.launch {
                             withContext(Dispatchers.IO) { history.clear() }
                             reloadHistory()
-                            message = "播放历史已清空"
+                            message = context.getString(R.string.app_history_cleared)
                         }
                     },
                     onImportM3u = {
@@ -770,7 +770,7 @@ fun FuMiVoiceApp(
                             val info = downloader.download(source)
                             if (info != null) {
                                 reloadSounds()
-                                message = "「${source.displayName}」下载完成，已加入音色库"
+                                message = context.getString(R.string.app_soundfont_downloaded, source.displayName)
                             }
                         }
                     },
@@ -1007,5 +1007,5 @@ private fun shareFile(context: Context, file: File, mime: String) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "分享播放列表"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.app_share_playlist)))
 }

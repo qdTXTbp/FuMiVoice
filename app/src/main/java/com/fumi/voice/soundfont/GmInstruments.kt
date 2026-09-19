@@ -6,6 +6,7 @@ data class GmInstrument(
     val name: String,
     val englishName: String,
     val family: String,
+    val familyEn: String,
 )
 
 /**
@@ -18,6 +19,12 @@ object GmInstruments {
     private val FAMILIES = listOf(
         "钢琴", "色彩打击", "风琴", "吉他", "贝斯", "弦乐", "合奏", "铜管",
         "簧管", "吹管", "合成主音", "合成铺底", "合成效果", "民族乐器", "打击乐", "音效",
+    )
+
+    /** 与 [FAMILIES] 一一对应的英文族名，供英文界面使用。 */
+    private val FAMILIES_EN = listOf(
+        "Piano", "Chromatic Percussion", "Organ", "Guitar", "Bass", "Strings", "Ensemble", "Brass",
+        "Reed", "Pipe", "Synth Lead", "Synth Pad", "Synth Effects", "Ethnic", "Percussive", "Sound Effects",
     )
 
     private val NAMES = listOf(
@@ -169,13 +176,14 @@ object GmInstruments {
 
     /** 128 个 GM 旋律音色。 */
     val all: List<GmInstrument> = NAMES.mapIndexed { index, (cn, en) ->
-        GmInstrument(
-            program = index,
-            name = cn,
-            englishName = en,
-            family = FAMILIES[index / 8],
-        )
-    }
+            GmInstrument(
+                program = index,
+                name = cn,
+                englishName = en,
+                family = FAMILIES[index / 8],
+                familyEn = FAMILIES_EN[index / 8],
+            )
+        }
 
     fun byProgram(program: Int): GmInstrument? = all.getOrNull(program)
 

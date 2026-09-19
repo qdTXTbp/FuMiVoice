@@ -214,10 +214,10 @@ fun NowPlayingScreen(
                         modifier = Modifier.size(52.dp),
                     )
                     Spacer(Modifier.height(16.dp))
-                    Text("音频文件", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                    Text(stringResource(R.string.np_audio_file), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "没有 MIDI 音符数据，因此不显示瀑布",
+                        stringResource(R.string.np_no_note_data),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
@@ -225,8 +225,8 @@ fun NowPlayingScreen(
 
                 else -> EmptyState(
                     icon = Icons.Default.MusicNote,
-                    title = "还没有选择曲目",
-                    message = "从曲库挑一首 MIDI，或直接打开本地文件，音符会落下来",
+                    title = stringResource(R.string.np_no_track_title),
+                    message = stringResource(R.string.np_no_track_message),
                     modifier = Modifier.fillMaxSize(),
                     action = {
                         Button(
@@ -234,7 +234,7 @@ fun NowPlayingScreen(
                             shape = RoundedCornerShape(24.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Indigo),
                         ) {
-                            Text("打开 MIDI 文件")
+                            Text(stringResource(R.string.np_open_midi))
                         }
                     },
                 )
@@ -255,7 +255,7 @@ fun NowPlayingScreen(
                 // 退场的那一份还能显示旧名字，直接读外层 track 的话
                 // 新旧两行会在切换的瞬间同时显示新曲名。
                 AnimatedContent(
-                    targetState = track?.title ?: "未选择曲目",
+                    targetState = track?.title ?: stringResource(R.string.np_no_track_short),
                     transitionSpec = {
                         fadeIn(animationSpec = Motion.spec(Motion.Standard)) togetherWith
                             fadeOut(animationSpec = Motion.spec(Motion.Instant))
@@ -272,10 +272,18 @@ fun NowPlayingScreen(
                     )
                 }
                 Spacer(Modifier.height(3.dp))
+                // buildString 的 lambda 不是可组合上下文，stringResource 不能写在里面，
+                // 所以先把两段文案取出来，再拼进去。
+                val fallbackFont = stringResource(R.string.header_no_soundfont)
+                val noteSuffix = if (track != null && track.noteCount > 0) {
+                    stringResource(R.string.np_note_count_suffix, track.noteCount)
+                } else {
+                    ""
+                }
                 Text(
                     buildString {
-                        append(state.soundFontName?.substringBeforeLast('.') ?: "未装载音色库")
-                        if (track != null && track.noteCount > 0) append(" · ${track.noteCount} 音符")
+                        append(state.soundFontName?.substringBeforeLast('.') ?: fallbackFont)
+                        append(noteSuffix)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
@@ -286,7 +294,7 @@ fun NowPlayingScreen(
             IconButton(onClick = onEnterPip) {
                 Icon(
                     Icons.Default.PictureInPictureAlt,
-                    contentDescription = "小窗播放",
+                    contentDescription = stringResource(R.string.np_pip),
                     tint = Indigo,
                     modifier = Modifier.size(22.dp),
                 )
@@ -294,7 +302,7 @@ fun NowPlayingScreen(
             IconButton(onClick = { showMixer = true }) {
                 Icon(
                     Icons.Default.GraphicEq,
-                    contentDescription = "混音台",
+                    contentDescription = stringResource(R.string.mixer_title),
                     tint = Indigo,
                     modifier = Modifier.size(22.dp),
                 )
@@ -308,7 +316,7 @@ fun NowPlayingScreen(
             IconButton(onClick = { showEqualizer = true }) {
                 Icon(
                     Icons.Default.Equalizer,
-                    contentDescription = "均衡器",
+                    contentDescription = stringResource(R.string.eq_title),
                     tint = eqIconTint,
                     modifier = Modifier.size(22.dp),
                 )
@@ -316,7 +324,7 @@ fun NowPlayingScreen(
             IconButton(onClick = onOpenSoundFonts) {
                 Icon(
                     Icons.Default.Tune,
-                    contentDescription = "切换音色",
+                    contentDescription = stringResource(R.string.np_switch_soundfont),
                     tint = Indigo,
                     modifier = Modifier.size(22.dp),
                 )
@@ -356,9 +364,9 @@ fun NowPlayingScreen(
                             RepeatMode.SHUFFLE -> Icons.Default.Shuffle
                         },
                         contentDescription = when (mode) {
-                            RepeatMode.SINGLE -> "单曲循环"
-                            RepeatMode.LIST -> "列表循环"
-                            RepeatMode.SHUFFLE -> "随机播放"
+                            RepeatMode.SINGLE -> stringResource(R.string.np_repeat_single)
+                            RepeatMode.LIST -> stringResource(R.string.np_repeat_list)
+                            RepeatMode.SHUFFLE -> stringResource(R.string.np_repeat_shuffle)
                         },
                         tint = Indigo,
                     )
@@ -368,7 +376,7 @@ fun NowPlayingScreen(
             IconButton(onClick = { player.previous() }, enabled = hasTrack) {
                 Icon(
                     Icons.Default.SkipPrevious,
-                    contentDescription = "上一首",
+                    contentDescription = stringResource(R.string.np_prev),
                     tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(32.dp),
                 )
@@ -401,7 +409,7 @@ fun NowPlayingScreen(
                     ) { playing ->
                         Icon(
                             if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (playing) "暂停" else "播放",
+                            contentDescription = if (playing) stringResource(R.string.np_pause) else stringResource(R.string.tab_play),
                             tint = Color.White,
                             modifier = Modifier.size(34.dp),
                         )
@@ -412,7 +420,7 @@ fun NowPlayingScreen(
             IconButton(onClick = { player.next() }, enabled = hasTrack) {
                 Icon(
                     Icons.Default.SkipNext,
-                    contentDescription = "下一首",
+                    contentDescription = stringResource(R.string.np_next),
                     tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(32.dp),
                 )
@@ -421,7 +429,7 @@ fun NowPlayingScreen(
             IconButton(onClick = { player.stop() }, enabled = hasTrack) {
                 Icon(
                     Icons.Default.Stop,
-                    contentDescription = "停止",
+                    contentDescription = stringResource(R.string.np_stop),
                     tint = if (hasTrack) TextPrimary else TextSecondary.copy(alpha = 0.4f),
                 )
             }
@@ -447,7 +455,7 @@ fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.VolumeDown, contentDescription = "音量", tint = TextSecondary, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.VolumeDown, contentDescription = stringResource(R.string.mixer_volume), tint = TextSecondary, modifier = Modifier.size(20.dp))
             Slider(
                 value = state.volume,
                 onValueChange = { player.setVolume(it) },
@@ -598,7 +606,7 @@ private fun PlaybackAdjustCard(
         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
 
             // ---- 倍速 ----
-            AdjustRow(label = "倍速", value = formatTempo(tempo)) {
+            AdjustRow(label = stringResource(R.string.np_speed), value = formatTempo(tempo)) {
                 Slider(
                     // 找不到匹配档位时回落到 1x（索引 3），避免拖到一半文件被换掉时跳档
                     value = TEMPO_STEPS.indexOfFirst { it == tempo }.let { if (it < 0) 3 else it }.toFloat(),
@@ -611,7 +619,7 @@ private fun PlaybackAdjustCard(
             }
 
             // ---- 音调：±12 半音（一个八度），与倍速互不影响 ----
-            AdjustRow(label = "音调", value = formatPitch(pitch)) {
+            AdjustRow(label = stringResource(R.string.np_pitch), value = formatPitch(pitch)) {
                 Slider(
                     value = pitch.toFloat(),
                     onValueChange = { onPitchChange(it.roundToInt()) },
@@ -627,11 +635,11 @@ private fun PlaybackAdjustCard(
                 modifier = Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("节拍器", style = MaterialTheme.typography.labelLarge, color = TextSecondary)
+                Text(stringResource(R.string.np_metronome), style = MaterialTheme.typography.labelLarge, color = TextSecondary)
                 Spacer(Modifier.weight(1f))
                 if (!metronomeAvailable) {
                     // 节拍要靠曲子的速度表对齐，音频 / 模块没有，这里说清楚为什么点不动
-                    PillTag("仅 MIDI", TextSecondary)
+                    PillTag(stringResource(R.string.np_metronome_midi_only), TextSecondary)
                     Spacer(Modifier.width(8.dp))
                 }
                 Switch(
@@ -649,7 +657,7 @@ private fun PlaybackAdjustCard(
             }
 
             AnimatedVisibility(visible = metronomeOn) {
-                AdjustRow(label = "音量", value = "${(metronomeVolume * 100).roundToInt()}%") {
+                AdjustRow(label = stringResource(R.string.mixer_volume), value = "${(metronomeVolume * 100).roundToInt()}%") {
                     Slider(
                         value = metronomeVolume,
                         onValueChange = onMetronomeVolume,

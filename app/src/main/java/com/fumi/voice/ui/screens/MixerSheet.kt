@@ -60,6 +60,9 @@ import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
+import com.fumi.voice.util.localizedText
 
 /**
  * 通道混音台底部弹层。
@@ -109,16 +112,16 @@ fun MixerSheet(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("混音台", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(stringResource(R.string.mixer_title), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(
-                        if (usedChannels.isEmpty()) "当前曲目不使用 MIDI 通道"
-                        else "本次曲目用到 ${usedChannels.size} 个通道",
+                        if (usedChannels.isEmpty()) stringResource(R.string.mixer_no_channels)
+                        else stringResource(R.string.mixer_channel_count, usedChannels.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
                 }
                 Text(
-                    "重置",
+                    stringResource(R.string.mixer_reset),
                     style = MaterialTheme.typography.labelMedium,
                     color = AccentOrange,
                     modifier = Modifier
@@ -131,7 +134,7 @@ fun MixerSheet(
             Spacer(Modifier.height(12.dp))
 
             SegmentedTabs(
-                options = listOf("用到的通道", "全部 16 通道"),
+                options = listOf(stringResource(R.string.mixer_tab_used), stringResource(R.string.mixer_tab_all)),
                 selected = if (showAll) 1 else 0,
                 onSelect = { showAll = it == 1 },
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -156,7 +159,7 @@ fun MixerSheet(
             }
 
             Text(
-                "静音与独奏通过把该通道音量置 0 实现；乐器选择会直接作用于当前播放的曲目。",
+                stringResource(R.string.mixer_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
@@ -188,9 +191,14 @@ private fun ChannelRow(
     onSolo: () -> Unit,
     onPickInstrument: () -> Unit,
 ) {
+    // remember 的 calculation lambda 不是可组合上下文，stringResource 不能写在里面，
+    // 先把要用的文案取出来再传进去。
+    val standardDrumKit = stringResource(R.string.mixer_standard_drum_kit)
+    val noProgram = stringResource(R.string.mixer_no_program)
     val instrumentName = remember(state.program) {
-        if (state.isDrum && state.program < 0) "标准鼓组"
-        else GmInstruments.all.firstOrNull { it.program == state.program }?.name ?: "未指定音色"
+        if (state.isDrum && state.program < 0) standardDrumKit
+        else GmInstruments.all.firstOrNull { it.program == state.program }
+            ?.let { localizedText(it.name, it.englishName) } ?: noProgram
     }
 
     Column(
@@ -210,7 +218,7 @@ private fun ChannelRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    if (state.isDrum) "鼓" else "${state.index + 1}",
+                    if (state.isDrum) stringResource(R.string.mixer_drum_short) else "${state.index + 1}",
                     style = TimecodeStyle.copy(fontSize = 12.sp),
                     color = if (state.isDrum) AccentOrange else Indigo,
                 )
@@ -231,22 +239,22 @@ private fun ChannelRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (state.program >= 0) "音色 ${state.program + 1} · 点击更换" else "点击选择音色",
+                    if (state.program >= 0) stringResource(R.string.mixer_program_tap_change, state.program + 1) else stringResource(R.string.mixer_pick_program),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     maxLines = 1,
                 )
             }
 
-            ToggleChip("静音", state.muted, AccentOrange, onMute)
+            ToggleChip(stringResource(R.string.mixer_mute), state.muted, AccentOrange, onMute)
             Spacer(Modifier.width(6.dp))
-            ToggleChip("独奏", state.soloed, AccentGreen, onSolo)
+            ToggleChip(stringResource(R.string.mixer_solo), state.soloed, AccentGreen, onSolo)
         }
 
         Spacer(Modifier.height(6.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("音量", style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.width(28.dp))
+            Text(stringResource(R.string.mixer_volume), style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.width(28.dp))
             Slider(
                 value = state.volume.toFloat(),
                 onValueChange = { onVolume(it.toInt()) },
@@ -267,7 +275,7 @@ private fun ChannelRow(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("声像", style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.width(28.dp))
+            Text(stringResource(R.string.mixer_pan), style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.width(28.dp))
             Slider(
                 value = state.pan.toFloat(),
                 onValueChange = { onPan(it.toInt()) },
@@ -307,10 +315,11 @@ private fun ToggleChip(label: String, active: Boolean, color: Color, onClick: ()
     }
 }
 
+@Composable
 private fun panLabel(pan: Int): String = when {
-    pan == 64 -> "居中"
-    pan < 64 -> "左${(64 - pan) * 100 / 64}%"
-    else -> "右${(pan - 64) * 100 / 63}%"
+    pan == 64 -> stringResource(R.string.mixer_pan_center)
+    pan < 64 -> stringResource(R.string.mixer_pan_left, (64 - pan) * 100 / 64)
+    else -> stringResource(R.string.mixer_pan_right, (pan - 64) * 100 / 63)
 }
 
 /** GM 音色选择弹窗，复用音色页那份 128 个音色表。 */
@@ -335,7 +344,7 @@ private fun InstrumentPickerDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                "通道 ${channelIndex + 1} 的音色",
+                stringResource(R.string.mixer_channel_program, channelIndex + 1),
                 color = TextPrimary,
             )
         },
@@ -345,13 +354,13 @@ private fun InstrumentPickerDialog(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索音色，如「钢琴」", color = TextSecondary) },
+                    placeholder = { Text(stringResource(R.string.mixer_search_placeholder), color = TextSecondary) },
                     leadingIcon = { Icon(Icons.Default.Search, null, tint = TextSecondary) },
                     trailingIcon = {
                         if (query.isNotEmpty()) {
                             Icon(
                                 Icons.Default.Clear,
-                                contentDescription = "清空",
+                                contentDescription = stringResource(R.string.action_clear),
                                 tint = TextSecondary,
                                 modifier = Modifier.clickable { query = "" },
                             )
@@ -391,14 +400,14 @@ private fun InstrumentPickerDialog(
                             Spacer(Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    instrument.name,
+                                    localizedText(instrument.name, instrument.englishName),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = if (selected) Indigo else TextPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    instrument.family,
+                                    localizedText(instrument.family, instrument.familyEn),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary,
                                     maxLines = 1,
@@ -410,7 +419,7 @@ private fun InstrumentPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close), color = TextSecondary) }
         },
         containerColor = CharcoalRaised,
     )

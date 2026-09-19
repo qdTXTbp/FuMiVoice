@@ -9,13 +9,13 @@ import com.fumi.voice.model.MidiTrack
  * 名称类默认升序（A→Z），数量类默认降序（长 / 大 / 多的排前面）。
  * 想看"哪首最长"时还要再点一次才反过来，体验是反的。
  */
-enum class TrackSort(val label: String, val defaultAscending: Boolean) {
-    FILE_NAME("文件名", true),
-    TITLE("曲名", true),
-    DURATION("时长", false),
-    SIZE("文件大小", false),
-    NOTES("音符数", false),
-    PLAY_COUNT("播放次数", false);
+enum class TrackSort(val label: String, val labelEn: String, val defaultAscending: Boolean) {
+    FILE_NAME("文件名", "File name", true),
+    TITLE("曲名", "Title", true),
+    DURATION("时长", "Duration", false),
+    SIZE("文件大小", "File size", false),
+    NOTES("音符数", "Notes", false),
+    PLAY_COUNT("播放次数", "Play count", false);
 
     /** 按本方式排序。[playCounts] 只有 PLAY_COUNT 用得上。 */
     fun apply(

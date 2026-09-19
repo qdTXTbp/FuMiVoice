@@ -35,11 +35,14 @@ fun formatTempo(tempo: Float): String =
 fun formatRelativeTime(timestamp: Long, now: Long = System.currentTimeMillis()): String {
     if (timestamp <= 0L) return "—"
     val diff = now - timestamp
+    // 这个函数在 buildString 里被调用（非可组合上下文），拿不到 stringResource，
+    // 所以按进程语言就地二选一。
+    val zh = isChineseUi
     return when {
-        diff < 60_000L -> "刚刚"
-        diff < 3_600_000L -> "${diff / 60_000} 分钟前"
-        diff < 86_400_000L -> "${diff / 3_600_000} 小时前"
-        diff < 7 * 86_400_000L -> "${diff / 86_400_000} 天前"
+        diff < 60_000L -> if (zh) "刚刚" else "Just now"
+        diff < 3_600_000L -> if (zh) "${diff / 60_000} 分钟前" else "${diff / 60_000} min ago"
+        diff < 86_400_000L -> if (zh) "${diff / 3_600_000} 小时前" else "${diff / 3_600_000} h ago"
+        diff < 7 * 86_400_000L -> if (zh) "${diff / 86_400_000} 天前" else "${diff / 86_400_000} d ago"
         else -> SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timestamp))
     }
 }

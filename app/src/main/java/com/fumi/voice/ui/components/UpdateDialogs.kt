@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.update.AppUpdater
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
 
 /** 「发现新版本」弹窗：展示版本号与更新说明，由用户决定是否更新。 */
 @Composable
@@ -25,7 +27,7 @@ fun UpdateAvailableDialog(
 ) {
     AlertDialog(
         onDismissRequest = onLater,
-        title = { Text("发现新版本 ${info.versionName}") },
+        title = { Text(stringResource(R.string.update_found_title, info.versionName)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -35,19 +37,19 @@ fun UpdateAvailableDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 if (info.notes.isBlank()) {
-                    Text("建议更新到最新版本。", style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.update_recommend), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Text(info.notes, style = MaterialTheme.typography.bodyMedium)
                 }
                 Text(
-                    "下载完成后会拉起系统安装界面，覆盖安装即可，曲库与歌单不受影响。",
+                    stringResource(R.string.update_install_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onUpdate) { Text("立即更新") } },
-        dismissButton = { TextButton(onClick = onLater) { Text("稍后") } },
+        confirmButton = { TextButton(onClick = onUpdate) { Text(stringResource(R.string.update_now)) } },
+        dismissButton = { TextButton(onClick = onLater) { Text(stringResource(R.string.update_later)) } },
     )
 }
 
@@ -59,7 +61,7 @@ fun UpdateDownloadDialog(read: Long, total: Long) {
     AlertDialog(
         // 下载期间不允许点外部/返回键关掉：界面收起后进度就看不到了
         onDismissRequest = {},
-        title = { Text("正在下载更新") },
+        title = { Text(stringResource(R.string.update_downloading_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (known) {
@@ -75,13 +77,13 @@ fun UpdateDownloadDialog(read: Long, total: Long) {
                 } else {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Text(
-                        "已下载 ${formatMb(read)}",
+                        stringResource(R.string.update_downloaded, formatMb(read)),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
                 }
                 Text(
-                    "走国内镜像下载，稍候片刻即可。",
+                    stringResource(R.string.update_mirror_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                 )

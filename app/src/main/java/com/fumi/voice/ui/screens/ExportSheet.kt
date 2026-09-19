@@ -66,6 +66,8 @@ import com.fumi.voice.util.formatSize
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
 
 /** 导出流程的粗粒度阶段（只在主线程改）。 */
 private sealed interface ExportUiState {
@@ -124,7 +126,7 @@ fun ExportSheet(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("导出为音频", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(stringResource(R.string.export_title), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(
                         track.title,
                         style = MaterialTheme.typography.bodySmall,
@@ -139,7 +141,7 @@ fun ExportSheet(
 
             when (val current = state) {
                 is ExportUiState.Idle -> {
-                    SectionLabel("选择格式")
+                    SectionLabel(stringResource(R.string.export_choose_format))
                     ExportFormat.entries.forEach { format ->
                         FormatRow(
                             format = format,
@@ -163,14 +165,14 @@ fun ExportSheet(
                                     }
                                     state = result.fold(
                                         onSuccess = { ExportUiState.Done(it) },
-                                        onFailure = { ExportUiState.Failed(it.message ?: "导出失败") },
+                                        onFailure = { ExportUiState.Failed(it.message ?: context.getString(R.string.export_failed)) },
                                     )
                                 }
                             },
                         )
                     }
                     Text(
-                        "导出文件保存在应用专属目录，卸载应用会一并删除；导出后可直接分享到其它应用。",
+                        stringResource(R.string.export_save_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -188,7 +190,7 @@ fun ExportSheet(
                             )
                             Spacer(Modifier.width(12.dp))
                             Text(
-                                "正在导出 ${current.format.label}…",
+                                stringResource(R.string.export_in_progress, current.format.label),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = TextPrimary,
                                 modifier = Modifier.weight(1f),
@@ -222,7 +224,7 @@ fun ExportSheet(
                                 modifier = Modifier.size(22.dp),
                             )
                             Spacer(Modifier.width(10.dp))
-                            Text("导出完成", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                            Text(stringResource(R.string.export_done), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                         }
                         Spacer(Modifier.height(10.dp))
                         Text(
@@ -256,13 +258,13 @@ fun ExportSheet(
                             ) {
                                 Icon(Icons.Default.Share, null, tint = Indigo, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("分享")
+                                Text(stringResource(R.string.export_share))
                             }
                             OutlinedButton(
                                 onClick = { state = ExportUiState.Idle },
                                 shape = RoundedCornerShape(20.dp),
                             ) {
-                                Text("再导一份")
+                                Text(stringResource(R.string.export_again))
                             }
                         }
                     }
@@ -270,7 +272,7 @@ fun ExportSheet(
 
                 is ExportUiState.Failed -> {
                     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                        Text("导出失败", style = MaterialTheme.typography.titleSmall, color = AccentRed)
+                        Text(context.getString(R.string.export_failed), style = MaterialTheme.typography.titleSmall, color = AccentRed)
                         Spacer(Modifier.height(6.dp))
                         Text(current.message, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                         Spacer(Modifier.height(14.dp))
@@ -278,7 +280,7 @@ fun ExportSheet(
                             onClick = { state = ExportUiState.Idle },
                             shape = RoundedCornerShape(20.dp),
                         ) {
-                            Text("重新选择格式")
+                            Text(stringResource(R.string.export_choose_again))
                         }
                     }
                 }
@@ -313,7 +315,7 @@ private fun FormatRow(
                 if (!supported) {
                     Spacer(Modifier.width(8.dp))
                     PillTag(
-                        if (format == ExportFormat.MP3) "未集成" else "设备不支持",
+                        if (format == ExportFormat.MP3) stringResource(R.string.export_codec_not_integrated) else stringResource(R.string.export_codec_unsupported),
                         AccentOrange,
                     )
                 }
@@ -352,5 +354,5 @@ private fun shareAudio(context: Context, file: File) {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    context.startActivity(Intent.createChooser(intent, "分享音频"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.export_share_chooser)))
 }

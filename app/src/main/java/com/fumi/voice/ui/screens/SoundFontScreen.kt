@@ -94,6 +94,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
+import com.fumi.voice.util.localizedText
 
 /** 音色页：SF2 音色库管理 + GM 乐器试听 + 在线下载。 */
 @Composable
@@ -132,38 +135,38 @@ fun SoundFontScreen(
             }
             if (!ok) {
                 previewing = null
-                toast("试听失败，请先确认已装载音色库")
+                toast(context.getString(R.string.sf_preview_failed))
             }
         }
     }
 
     fun applySoundFont(info: SoundFontInfo) {
         if (loadingText != null) return
-        loadingText = "正在加载 ${info.displayName}…"
+        loadingText = context.getString(R.string.sf_loading, info.displayName)
         scope.launch {
             val ok = withContext(Dispatchers.IO) { player.loadSoundFont(info.path) }
             loadingText = null
             if (ok) {
                 manager.select(info)
                 onRefresh()
-                toast("已切换到 ${info.displayName}")
+                toast(context.getString(R.string.sf_switched, info.displayName))
             } else {
-                toast("${info.displayName} 不是有效的音色库文件")
+                toast(context.getString(R.string.sf_invalid_file, info.displayName))
             }
         }
     }
 
     fun importUris(uris: List<android.net.Uri>) {
         if (uris.isEmpty()) return
-        loadingText = "正在导入 ${uris.size} 个音色库…"
+        loadingText = context.getString(R.string.sf_importing, uris.size)
         scope.launch {
             val result = withContext(Dispatchers.IO) { manager.importAll(uris) }
             loadingText = null
             onRefresh()
             when {
-                result.imported.isEmpty() -> toast("导入失败，请确认文件是 .sf2 格式")
-                result.failed > 0 -> toast("成功 ${result.imported.size} 个，失败 ${result.failed} 个")
-                else -> toast("成功导入 ${result.imported.size} 个音色库")
+                result.imported.isEmpty() -> toast(context.getString(R.string.sf_import_format_hint))
+                result.failed > 0 -> toast(context.getString(R.string.sf_import_partial, result.imported.size, result.failed))
+                else -> toast(context.getString(R.string.sf_import_ok, result.imported.size))
             }
         }
     }
@@ -176,11 +179,11 @@ fun SoundFontScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri ->
         if (treeUri == null) return@rememberLauncherForActivityResult
-        loadingText = "正在扫描文件夹…"
+        loadingText = context.getString(R.string.sf_scanning)
         scope.launch {
             val uris = withContext(Dispatchers.IO) { manager.scanTree(treeUri) }
             loadingText = null
-            if (uris.isEmpty()) toast("该文件夹里没有找到音色库文件") else importUris(uris)
+            if (uris.isEmpty()) toast(context.getString(R.string.sf_scan_empty)) else importUris(uris)
         }
     }
 
@@ -188,7 +191,7 @@ fun SoundFontScreen(
         Column(modifier = Modifier.fillMaxSize()) {
 
             SegmentedTabs(
-                options = listOf("音色库", "乐器试听", "在线下载"),
+                options = listOf(stringResource(R.string.sf_tab_soundfont), stringResource(R.string.sf_tab_instruments), stringResource(R.string.sf_tab_download)),
                 selected = section,
                 onSelect = { section = it },
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -211,9 +214,9 @@ fun SoundFontScreen(
                     onDelete = { info ->
                         if (manager.delete(info)) {
                             onRefresh()
-                            toast("已移除 ${info.displayName}")
+                            toast(context.getString(R.string.sf_removed, info.displayName))
                         } else {
-                            toast("内置音色不可移除")
+                            toast(context.getString(R.string.sf_builtin_no_remove))
                         }
                     },
                     onImportFiles = { filePicker.launch(arrayOf("*/*")) },
@@ -226,7 +229,7 @@ fun SoundFontScreen(
                         playPreview(PreviewMidiFactory.instrumentPreview(inst.program), inst.name)
                     },
                     onPreviewDrums = {
-                        playPreview(PreviewMidiFactory.drumPattern(), "鼓组")
+                        playPreview(PreviewMidiFactory.drumPattern(), context.getString(R.string.sf_drum_kit))
                     },
                     onPreviewDrumHit = { drum ->
                         playPreview(PreviewMidiFactory.drumHit(drum.note), drum.name)
@@ -290,7 +293,7 @@ private fun DownloadBrowser(
     ) {
         item {
             Text(
-                "全部为第三方公开发布的自由音色库，统一走 jsDelivr CDN 直连（实测比 GitHub Pages 快约 100 倍）。下载完成后会自动校验文件格式，再收入「音色库」分区。",
+                stringResource(R.string.sf_download_intro),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
@@ -298,7 +301,7 @@ private fun DownloadBrowser(
         }
 
         SoundFontCatalog.grouped.forEach { (category, sources) ->
-            item(key = "cat_$category") { SectionLabel(category) }
+            item(key = "cat_$category") { SectionLabel(SoundFontCatalog.localized(category)) }
             items(sources, key = { it.id }) { source ->
                 val state = downloadStates[source.id]
                 val installed = downloadedIds.contains(source.id) ||
@@ -315,7 +318,7 @@ private fun DownloadBrowser(
 
         item {
             Text(
-                "音色库版权归各自作者所有，点条目上的许可证标签可确认授权范围。若某个源不可访问，通常是 CDN 临时波动，稍后重试即可。",
+                stringResource(R.string.sf_license_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -343,7 +346,7 @@ private fun DownloadRow(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        source.displayName,
+                        SoundFontCatalog.localized(source.displayName),
                         style = MaterialTheme.typography.titleSmall,
                         color = TextPrimary,
                         maxLines = 1,
@@ -351,25 +354,27 @@ private fun DownloadRow(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     Spacer(Modifier.width(6.dp))
-                    PillTag(source.license, Indigo)
+                    PillTag(SoundFontCatalog.localized(source.license), Indigo)
                     if (source.slow) {
                         Spacer(Modifier.width(4.dp))
-                        PillTag("较慢", AccentOrange)
+                        PillTag(stringResource(R.string.sf_slow_tag), AccentOrange)
                     }
                 }
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    source.description,
+                    SoundFontCatalog.localized(source.description),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                 )
                 Spacer(Modifier.height(3.dp))
+                // buildString 的 lambda 不是可组合上下文，先取出文案再拼
+                val slowHint = if (source.slow) stringResource(R.string.sf_slow_hint) else ""
                 Text(
                     buildString {
                         append(formatSize(source.approxBytes))
                         append(" · ")
                         append(source.fileName)
-                        if (source.slow) append(" · 此源下载慢，请耐心等待")
+                        append(slowHint)
                     },
                     style = TimecodeStyle.copy(fontSize = 11.sp),
                     color = if (source.slow) AccentOrange else TextSecondary,
@@ -389,7 +394,7 @@ private fun DownloadRow(
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("已下载", style = MaterialTheme.typography.labelMedium, color = AccentGreen)
+                    Text(stringResource(R.string.sf_downloaded_tag), style = MaterialTheme.typography.labelMedium, color = AccentGreen)
                 }
 
                 state != null && !state.failed -> Box(
@@ -411,7 +416,7 @@ private fun DownloadRow(
                 ) {
                     Icon(Icons.Default.Refresh, null, tint = AccentOrange, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("重试", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.sf_retry), style = MaterialTheme.typography.labelLarge)
                 }
 
                 else -> OutlinedButton(
@@ -421,7 +426,7 @@ private fun DownloadRow(
                 ) {
                     Icon(Icons.Default.Download, null, tint = Indigo, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("下载", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.sf_download), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -446,7 +451,7 @@ private fun DownloadRow(
         if (state?.failed == true) {
             Spacer(Modifier.height(8.dp))
             Text(
-                "下载失败：${state.error ?: "未知错误"}",
+                stringResource(R.string.sf_download_failed, state.error ?: stringResource(R.string.sf_unknown_error)),
                 style = MaterialTheme.typography.bodySmall,
                 color = AccentRed,
             )
@@ -470,7 +475,7 @@ private fun SoundFontList(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 8.dp),
         ) {
-            item { SectionLabel("已装载的 SoundFont", trailing = "${sounds.size} 个") }
+            item { SectionLabel(stringResource(R.string.sf_loaded_title), trailing = stringResource(R.string.sf_count, sounds.size)) }
 
             items(sounds, key = { it.fileName }) { info ->
                 val active = info.fileName == currentFontName
@@ -501,7 +506,7 @@ private fun SoundFontList(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                SoundFontCatalog.displayNameFor(info.fileName) ?: info.displayName,
+                                SoundFontCatalog.localized(SoundFontCatalog.displayNameFor(info.fileName) ?: info.displayName),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (active) Indigo else TextPrimary,
                                 maxLines = 1,
@@ -510,7 +515,7 @@ private fun SoundFontList(
                             )
                             if (info.isBundled) {
                                 Spacer(Modifier.width(6.dp))
-                                PillTag("内置", AccentOrange)
+                                PillTag(stringResource(R.string.sf_builtin_tag), AccentOrange)
                             }
                         }
                         Spacer(Modifier.height(2.dp))
@@ -523,7 +528,7 @@ private fun SoundFontList(
                     if (active) {
                         Icon(
                             Icons.Default.CheckCircle,
-                            contentDescription = "使用中",
+                            contentDescription = stringResource(R.string.sf_in_use),
                             tint = AccentOrange,
                             modifier = Modifier.size(20.dp),
                         )
@@ -536,7 +541,7 @@ private fun SoundFontList(
                                 .clickable { onDelete(info) },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Default.Delete, "移除", tint = TextSecondary, modifier = Modifier.size(19.dp))
+                            Icon(Icons.Default.Delete, stringResource(R.string.sf_remove), tint = TextSecondary, modifier = Modifier.size(19.dp))
                         }
                     } else {
                         Spacer(Modifier.width(8.dp))
@@ -546,7 +551,7 @@ private fun SoundFontList(
 
             item {
                 Text(
-                    "支持 SoundFont2（.sf2）、SoundFont3（.sf3）与 DLS。导入时会校验文件头，改名的其它文件会被拒绝。",
+                    stringResource(R.string.sf_import_support_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
@@ -565,7 +570,7 @@ private fun SoundFontList(
             ) {
                 Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("导入文件", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.sf_import_files), style = MaterialTheme.typography.labelLarge)
             }
             OutlinedButton(
                 onClick = onImportFolder,
@@ -574,7 +579,7 @@ private fun SoundFontList(
             ) {
                 Icon(Icons.Default.Folder, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("导入文件夹", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.sf_import_folder), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -606,7 +611,7 @@ private fun InstrumentBrowser(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            placeholder = { Text("搜索音色，如「钢琴」「Violin」", color = TextSecondary) },
+            placeholder = { Text(stringResource(R.string.sf_search_placeholder), color = TextSecondary) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = TextSecondary) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -625,7 +630,7 @@ private fun InstrumentBrowser(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            item { SectionLabel("鼓组", trailing = "MIDI 通道 10") }
+            item { SectionLabel(stringResource(R.string.sf_drum_kit), trailing = stringResource(R.string.sf_drum_channel)) }
             item {
                 DrumKitCard(
                     previewing = previewing,
@@ -637,7 +642,7 @@ private fun InstrumentBrowser(
             if (grouped.isEmpty()) {
                 item {
                     Text(
-                        "没有匹配的音色",
+                        stringResource(R.string.sf_no_match),
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
                         modifier = Modifier.padding(20.dp),
@@ -646,7 +651,8 @@ private fun InstrumentBrowser(
             }
 
             grouped.forEach { (family, list) ->
-                item(key = "header_$family") { SectionLabel(family) }
+                // 分组键沿用中文族名（它是稳定的身份），只在显示时按语言取那一侧
+                item(key = "header_$family") { SectionLabel(localizedText(family, list.first().familyEn)) }
                 items(list, key = { it.program }) { instrument ->
                     InstrumentRow(
                         instrument = instrument,
@@ -675,14 +681,14 @@ private fun DrumKitCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("标准鼓组", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                Text(stringResource(R.string.sf_standard_drum_kit), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                 Spacer(Modifier.height(2.dp))
-                Text("两小节节奏 + 桶鼓过门", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                Text(stringResource(R.string.sf_drum_desc), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
             OutlinedButton(onClick = onPreviewAll, shape = RoundedCornerShape(20.dp)) {
                 Icon(Icons.Default.PlayArrow, null, tint = Indigo, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("试听", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.sf_preview), style = MaterialTheme.typography.labelLarge)
             }
         }
 
@@ -706,7 +712,7 @@ private fun DrumKitCard(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            drum.name,
+                            localizedText(drum.name, drum.englishName),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (active) Color.White else TextSecondary,
                             maxLines = 1,
@@ -741,9 +747,12 @@ private fun InstrumentRow(
             modifier = Modifier.width(34.dp),
         )
         Spacer(Modifier.width(10.dp))
+        // 主行显示当前语言的音色名，副行显示另一种语言——英文界面下副行的中文名依然有用
+        val title = localizedText(instrument.name, instrument.englishName)
+        val subtitle = localizedText(instrument.englishName, instrument.name)
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                instrument.name,
+                title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (playing) Indigo else TextPrimary,
                 maxLines = 1,
@@ -751,7 +760,7 @@ private fun InstrumentRow(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                instrument.englishName,
+                subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
                 maxLines = 1,
@@ -761,7 +770,7 @@ private fun InstrumentRow(
         IconButton(onClick = onClick) {
             Icon(
                 Icons.Default.PlayArrow,
-                contentDescription = "试听 ${instrument.name}",
+                contentDescription = stringResource(R.string.sf_preview_item, title),
                 tint = if (playing) Indigo else TextSecondary,
                 modifier = Modifier.size(22.dp),
             )

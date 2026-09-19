@@ -1,5 +1,7 @@
 package com.fumi.voice.soundfont
 
+import com.fumi.voice.util.isChineseUi
+
 /** 可下载的音色库条目。 */
 data class SoundFontSource(
     val id: String,
@@ -198,10 +200,70 @@ object SoundFontCatalog {
 
     fun byId(id: String): SoundFontSource? = all.firstOrNull { it.id == id }
 
-    /**
-     * 按文件名反查友好名称。
+    /** 按文件名反查友好名称。
      * 下载进来的文件在磁盘上叫 `FluidR3Mono_GM.sf3`，但界面应该显示「FluidR3 Mono GM」。
      */
     fun displayNameFor(fileName: String): String? =
         all.firstOrNull { it.fileName == fileName }?.displayName
+
+    /**
+     * 英文界面下的文案替换表：中文原文 → 英文。
+     *
+     * 用「查表」而不是给每条都加 `*En` 平行字段：这张表本质是数据，
+     * 每条塞两份文案会让它长一倍且容易漏填；查表没命中时原样返回，
+     * 也不会因为漏了一条就显示出空字符串。
+     */
+    private val EN: Map<String, String> = mapOf(
+        // 分类
+        "通用音色库" to "General MIDI banks",
+        "旗舰音色库" to "Flagship banks",
+        "单音色强化" to "Instrument-focused",
+        "合成与电子" to "Synth & electronic",
+        "轻量音色库" to "Lightweight",
+
+        // 中文显示名
+        "FM/GM 紧凑版" to "FM/GM Compact",
+        "雅马哈 C5 三角钢琴" to "Yamaha C5 Grand Piano",
+        "Galaxy 电钢琴" to "Galaxy Electric Pianos",
+        "Supersaw 合成音色" to "Supersaw Collection",
+        "Florestan 轻量 GM" to "Florestan Light GM",
+        "FluidR3 GM（完整版）" to "FluidR3 GM (complete)",
+        "SGM-V2.01（分卷）" to "SGM-V2.01 (split parts)",
+
+        // 许可/出处中的中文部分
+        "公共素材" to "Public domain",
+        "出处：FuFumidiSoundFonts 镜像，许可以发布页为准" to
+            "Source: FuFumidiSoundFonts mirror; see its release page for the licence",
+        "出处：FuFumidi 音色库发布页，许可以发布页为准" to
+            "Source: FuFumidi soundfont release page; see it for the licence",
+
+        // 描述
+        "完整 128 音色 + 鼓组，音色均衡自然，日常播放首选" to
+            "Full 128 GM instruments plus drums; balanced and natural — a solid everyday choice",
+        "完整 GM，FM 合成味道，复古游戏听感，兼容 GS/XG/GM2 别名" to
+            "Full GM with FM character and a retro game feel; GS/XG/GM2 aliases supported",
+        "完整 GM，FM 合成味道更重，复古游戏机听感" to
+            "Full GM with a heavier FM character — classic console sound",
+        "单独强化的钢琴音色，弹钢琴曲首选" to
+            "An individually sampled grand piano — best for piano pieces",
+        "电钢琴合集，适合流行与爵士" to
+            "An electric piano collection suited to pop and jazz",
+        "60 个锯齿波音色，电子舞曲风格" to
+            "60 sawtooth-based patches in an EDM style",
+        "约 0.5MB 的极简 GM 子集，秒下秒加载，适合快速试听" to
+            "A ~0.5 MB minimal GM subset — instant to download and load, great for a quick listen",
+        "约 0.3MB 的复古合成波形，怀旧电子音色" to
+            "A ~0.3 MB retro synth waveform bank with a nostalgic electronic flavour",
+        "完整 GM/GS，自带 GS 变体与鼓组，音色自然、体积适中" to
+            "Full GM/GS with GS variations and drums; natural sound at a moderate size",
+        "128 音色 + 鼓组的经典完整采样库，钢琴与弦乐表现力强" to
+            "The classic complete 128-instrument sampling set; expressive piano and strings",
+        "GS/GM 兼容的大体量音色库，分 3 卷下载后自动合并" to
+            "A large GS/GM-compatible bank, split into 3 parts that are merged automatically",
+        "影视配乐取向的大体量音色库，动态与层次感突出" to
+            "A large film-scoring oriented bank with strong dynamics and depth",
+    )
+
+    /** 按当前语言取文案；英文界面且表里有对应条目时返回英文。 */
+    fun localized(text: String): String = if (isChineseUi) text else EN[text] ?: text
 }

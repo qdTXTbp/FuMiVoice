@@ -66,6 +66,8 @@ import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatSize
+import androidx.compose.ui.res.stringResource
+import com.fumi.voice.R
 
 /** 歌单详情：曲目列表 + 播放全部 / 随机 / 重命名 / 删除。 */
 @Composable
@@ -97,7 +99,7 @@ fun PlaylistDetailScreen(
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.ArrowBack, "返回", tint = TextPrimary)
+                Icon(Icons.Default.ArrowBack, stringResource(R.string.action_back), tint = TextPrimary)
             }
             Text(
                 playlist.name,
@@ -114,21 +116,21 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.size(40.dp).clip(CircleShape).clickable { addingMenu = true },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.Add, "添加曲目", tint = Indigo)
+                    Icon(Icons.Default.Add, stringResource(R.string.pl_add_tracks), tint = Indigo)
                 }
                 DropdownMenu(expanded = addingMenu, onDismissRequest = { addingMenu = false }) {
                     DropdownMenuItem(
-                        text = { Text("从曲库添加", color = TextPrimary) },
+                        text = { Text(stringResource(R.string.pl_add_from_library), color = TextPrimary) },
                         onClick = { addingMenu = false; onAddFromLibrary() },
                     )
                     DropdownMenuItem(
-                        text = { Text("导入文件", color = TextPrimary) },
+                        text = { Text(stringResource(R.string.action_import_files), color = TextPrimary) },
                         onClick = { addingMenu = false; onImportFiles() },
                     )
                 }
             }
             Text(
-                "重命名",
+                stringResource(R.string.pl_rename),
                 style = MaterialTheme.typography.labelMedium,
                 color = Indigo,
                 modifier = Modifier
@@ -140,15 +142,15 @@ fun PlaylistDetailScreen(
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { confirmingDeletePlaylist = true },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Delete, "删除歌单", tint = TextSecondary, modifier = Modifier.size(19.dp))
+                Icon(Icons.Default.Delete, stringResource(R.string.pl_delete_playlist), tint = TextSecondary, modifier = Modifier.size(19.dp))
             }
         }
 
         if (tracks.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.MusicNote,
-                title = "歌单还是空的",
-                message = "从曲库挑几首加进来，或直接导入音频 / MIDI 文件",
+                title = stringResource(R.string.pl_empty_title),
+                message = stringResource(R.string.pl_empty_message),
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
             // 空歌单时把两个导入入口直接摆出来：原来只有一句"回到曲目列表点 ⊕"，
@@ -161,10 +163,10 @@ fun PlaylistDetailScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedButton(onClick = onAddFromLibrary, modifier = Modifier.weight(1f)) {
-                    Text("从曲库添加", maxLines = 1)
+                    Text(stringResource(R.string.pl_add_from_library), maxLines = 1)
                 }
                 Button(onClick = onImportFiles, modifier = Modifier.weight(1f)) {
-                    Text("导入文件", maxLines = 1)
+                    Text(stringResource(R.string.action_import_files), maxLines = 1)
                 }
             }
         } else {
@@ -182,7 +184,7 @@ fun PlaylistDetailScreen(
                 ) {
                     Icon(Icons.Default.PlayArrow, null, tint = Indigo, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("播放全部", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                    Text(stringResource(R.string.pl_play_all), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                 }
                 Row(
                     modifier = Modifier
@@ -193,7 +195,7 @@ fun PlaylistDetailScreen(
                 ) {
                     Icon(Icons.Default.Shuffle, null, tint = AccentOrange, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("随机", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                    Text(stringResource(R.string.pl_shuffle), style = MaterialTheme.typography.titleSmall, color = TextPrimary)
                 }
                 Row(
                     modifier = Modifier
@@ -204,7 +206,7 @@ fun PlaylistDetailScreen(
                 ) {
                     Icon(Icons.Default.Share, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("导出", style = MaterialTheme.typography.titleSmall, color = TextSecondary)
+                    Text(stringResource(R.string.pl_export), style = MaterialTheme.typography.titleSmall, color = TextSecondary)
                 }
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
@@ -253,7 +255,7 @@ fun PlaylistDetailScreen(
                             modifier = Modifier.size(42.dp).clip(CircleShape).clickable { onRemove(track) },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Default.Delete, "移出歌单", tint = TextSecondary, modifier = Modifier.size(19.dp))
+                            Icon(Icons.Default.Delete, stringResource(R.string.pl_remove_from_playlist), tint = TextSecondary, modifier = Modifier.size(19.dp))
                         }
                     }
                 }
@@ -264,16 +266,16 @@ fun PlaylistDetailScreen(
     if (confirmingDeletePlaylist) {
         AlertDialog(
             onDismissRequest = { confirmingDeletePlaylist = false },
-            title = { Text("删除歌单？", color = TextPrimary) },
-            text = { Text("「${playlist.name}」将被删除，曲库中的文件不受影响。", color = TextSecondary) },
+            title = { Text(stringResource(R.string.pl_delete_confirm_title), color = TextPrimary) },
+            text = { Text(stringResource(R.string.pl_delete_confirm_text, playlist.name), color = TextSecondary) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmingDeletePlaylist = false
                     onDelete()
-                }) { Text("删除", color = AccentOrange) }
+                }) { Text(stringResource(R.string.pl_delete), color = AccentOrange) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmingDeletePlaylist = false }) { Text("取消", color = TextSecondary) }
+                TextButton(onClick = { confirmingDeletePlaylist = false }) { Text(stringResource(R.string.action_cancel), color = TextSecondary) }
             },
             containerColor = CharcoalRaised,
         )
@@ -295,13 +297,13 @@ fun RenamePlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isCreate) "新建歌单" else "重命名歌单", color = TextPrimary) },
+        title = { Text(if (isCreate) stringResource(R.string.pl_new_playlist) else stringResource(R.string.pl_rename_playlist), color = TextPrimary) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                placeholder = { Text("歌单名称", color = TextSecondary) },
+                placeholder = { Text(stringResource(R.string.pl_name_placeholder), color = TextSecondary) },
                 shape = RoundedCornerShape(10.dp),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color(0xFF2A2A33),
@@ -318,10 +320,10 @@ fun RenamePlaylistDialog(
             TextButton(
                 onClick = { if (text.isNotBlank()) onConfirm(text) },
                 enabled = text.isNotBlank(),
-            ) { Text(if (isCreate) "创建" else "保存", color = Indigo) }
+            ) { Text(if (isCreate) stringResource(R.string.pl_create) else stringResource(R.string.pl_save), color = Indigo) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel), color = TextSecondary) }
         },
         containerColor = CharcoalRaised,
     )
@@ -373,10 +375,10 @@ fun PickLibraryTracksSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("从曲库添加", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                    Text(stringResource(R.string.pl_add_from_library), style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                     Text(
-                        if (candidates.isEmpty()) "曲库里没有可添加的曲目"
-                        else "共 ${candidates.size} 首可选",
+                        if (candidates.isEmpty()) stringResource(R.string.pl_pick_none)
+                        else stringResource(R.string.pl_pick_count, candidates.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
@@ -385,7 +387,7 @@ fun PickLibraryTracksSheet(
                 if (visible.isNotEmpty()) {
                     val allChosen = visible.all { it.path in chosen }
                     Text(
-                        if (allChosen) "取消全选" else "全选",
+                        if (allChosen) stringResource(R.string.pl_deselect_all) else stringResource(R.string.pl_select_all),
                         style = MaterialTheme.typography.labelLarge,
                         color = Indigo,
                         modifier = Modifier
@@ -405,7 +407,7 @@ fun PickLibraryTracksSheet(
                 value = keyword,
                 onValueChange = { keyword = it },
                 singleLine = true,
-                placeholder = { Text("搜索曲名 / 艺术家 / 文件名", color = TextSecondary) },
+                placeholder = { Text(stringResource(R.string.pl_search_tracks), color = TextSecondary) },
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 colors = TextFieldDefaults.colors(
@@ -467,14 +469,14 @@ fun PickLibraryTracksSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                    Text("取消", color = TextSecondary)
+                    Text(stringResource(R.string.action_cancel), color = TextSecondary)
                 }
                 Button(
                     onClick = { onConfirm(candidates.filter { it.path in chosen }) },
                     enabled = chosen.isNotEmpty(),
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text(if (chosen.isEmpty()) "添加" else "添加 ${chosen.size} 首")
+                    Text(if (chosen.isEmpty()) stringResource(R.string.pl_add) else stringResource(R.string.pl_add_count, chosen.size))
                 }
             }
         }
@@ -495,12 +497,12 @@ fun AddToPlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("加入歌单", color = TextPrimary) },
+        title = { Text(stringResource(R.string.pl_dialog_title), color = TextPrimary) },
         text = {
             Column {
                 Text(
                     // 单首显示曲名，多首显示数量
-                    if (tracks.size == 1) tracks.first().title else "已选 ${tracks.size} 首曲目",
+                    if (tracks.size == 1) tracks.first().title else stringResource(R.string.pl_selected_count, tracks.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary,
                     maxLines = 1,
@@ -510,7 +512,7 @@ fun AddToPlaylistDialog(
 
                 if (playlists.isEmpty()) {
                     Text(
-                        "还没有歌单，先建一个：",
+                        stringResource(R.string.pl_no_playlists),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                     )
@@ -552,7 +554,7 @@ fun AddToPlaylistDialog(
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text("或新建一个：", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text(stringResource(R.string.pl_or_create), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
 
                 Spacer(Modifier.height(6.dp))
@@ -560,7 +562,7 @@ fun AddToPlaylistDialog(
                     value = newName,
                     onValueChange = { newName = it },
                     singleLine = true,
-                    placeholder = { Text("新歌单名称", color = TextSecondary) },
+                    placeholder = { Text(stringResource(R.string.pl_new_name_placeholder), color = TextSecondary) },
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
@@ -586,10 +588,10 @@ fun AddToPlaylistDialog(
                     }
                 },
                 enabled = newName.isNotBlank() || chosen.value.isNotEmpty(),
-            ) { Text(if (newName.isNotBlank()) "新建并加入" else "加入", color = Indigo) }
+            ) { Text(if (newName.isNotBlank()) stringResource(R.string.pl_create_and_add) else stringResource(R.string.pl_join), color = Indigo) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel), color = TextSecondary) }
         },
         containerColor = CharcoalRaised,
     )
