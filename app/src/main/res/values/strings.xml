@@ -9,4 +9,45 @@
     <string name="widget_prev">上一首</string>
     <string name="widget_toggle">播放或暂停</string>
     <string name="widget_next">下一首</string>
+
+    <!-- 底部导航 -->
+    <string name="tab_play">播放</string>
+    <string name="tab_library">曲库</string>
+    <string name="tab_soundfont">音色</string>
+    <string name="tab_cloud">云同步</string>
+
+    <!-- 通用动作 -->
+    <string name="action_back">返回</string>
+    <string name="action_check">检查</string>
+    <string name="state_checking">检查中…</string>
+    <string name="action_open_midi">打开单个 MIDI 文件</string>
+    <string name="action_check_update">检查更新</string>
+
+    <!-- 顶栏副标题 -->
+    <string name="header_playing">正在播放</string>
+    <string name="header_paused">已暂停</string>
+    <string name="header_stopped">未在播放</string>
+    <string name="header_track_count">%1$d 首曲目</string>
+    <string name="header_library_empty">曲库为空</string>
+    <string name="header_no_soundfont">未装载音色库</string>
+
+    <!-- 设置页 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_open">设置</string>
+    <string name="settings_section_language">语言</string>
+    <string name="settings_section_general">通用</string>
+    <string name="settings_section_about">关于</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_download">下载地址</string>
+    <string name="settings_project">项目主页</string>
+    <string name="settings_developer">开发者</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_latest">已是最新版本</string>
+    <string name="settings_license_title">第三方组件与音色库</string>
+    <string name="settings_license_body">本应用内置与可下载的音色库均来自第三方公开发布，遵循各自的许可条款，详情请见对应音色库的发布页。BASS / BASSMIDI / BASS_FX / BASSFLAC / BASSWV 音效引擎版权归 Un4seen Developments 所有。</string>
+    <string name="settings_open_failed">无法打开该链接</string>
+
+    <!-- 沉浸模式 -->
+    <string name="action_enter_immersive">进入沉浸模式</string>
+    <string name="action_exit_immersive">退出沉浸模式</string>
 </resources>

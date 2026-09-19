@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FuMiVoice</string>
+    <string name="widget_name">FuMiVoice playback</string>
+    <string name="widget_description">Play/pause, previous and next from the home screen, with a live note waterfall</string>
+    <string name="widget_no_track">Not playing</string>
+    <string name="widget_subtitle_placeholder">FuMiVoice</string>
+    <string name="widget_waterfall">Note waterfall</string>
+    <string name="widget_prev">Previous</string>
+    <string name="widget_toggle">Play or pause</string>
+    <string name="widget_next">Next</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_play">Play</string>
+    <string name="tab_library">Library</string>
+    <string name="tab_soundfont">Sounds</string>
+    <string name="tab_cloud">Cloud</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_check">Check</string>
+    <string name="state_checking">Checking…</string>
+    <string name="action_open_midi">Open a MIDI file</string>
+    <string name="action_check_update">Check for updates</string>
+
+    <!-- Header subtitles -->
+    <string name="header_playing">Now playing</string>
+    <string name="header_paused">Paused</string>
+    <string name="header_stopped">Not playing</string>
+    <string name="header_track_count">%1$d tracks</string>
+    <string name="header_library_empty">Library is empty</string>
+    <string name="header_no_soundfont">No soundfont loaded</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Settings</string>
+    <string name="settings_section_language">Language</string>
+    <string name="settings_section_general">General</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_check_update">Check for updates</string>
+    <string name="settings_download">Download</string>
+    <string name="settings_project">Project home</string>
+    <string name="settings_developer">Developer</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_latest">You are up to date</string>
+    <string name="settings_license_title">Third-party components and soundfonts</string>
+    <string name="settings_license_body">All bundled and downloadable soundfonts are third-party public releases and follow their own licenses; see each soundfont release page for details. The BASS / BASSMIDI / BASS_FX / BASSFLAC / BASSWV engines are copyright Un4seen Developments.</string>
+    <string name="settings_open_failed">Could not open the link</string>
+
+    <!-- Immersive mode -->
+    <string name="action_enter_immersive">Enter immersive mode</string>
+    <string name="action_exit_immersive">Exit immersive mode</string>
+</resources>

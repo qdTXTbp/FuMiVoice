@@ -3,16 +3,12 @@ package com.fumi.voice.soundfont
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** 单个下载任务的状态。 */
 data class DownloadState(
@@ -44,8 +40,6 @@ class SoundFontDownloader(
 
     companion object {
         private const val TAG = "SoundFontDownloader"
-        private const val TIMEOUT_MS = 20_000
-        private const val BUFFER_SIZE = 64 * 1024
     }
 
     private val _tasks = MutableStateFlow<Map<String, DownloadState>>(emptyMap())
@@ -80,15 +74,12 @@ class SoundFontDownloader(
 
         return try {
             val info = withContext(Dispatchers.IO) {
-                fetchTo(source, tempFile) { read, total ->
-                    _tasks.value = _tasks.value + (
-                        source.id to DownloadState(
-                            sourceId = source.id,
-                            displayName = source.displayName,
-                            bytesRead = read,
-                            totalBytes = total,
-                        )
-                        )
+                if (source.parts.isEmpty()) {
+                    DownloadEngine.downloadTo(source.url, tempFile) { read, total ->
+                        reportProgress(source, read, total)
+                    }
+                } else {
+                    fetchParts(source, tempFile)
                 }
                 // 下载完成，校验并收编
                 manager.adoptDownloaded(tempFile, source.fileName)
@@ -128,45 +119,50 @@ class SoundFontDownloader(
         }
     }
 
-    /** 从 CDN 拉取到本地临时文件，边下边回报进度。 */
-    private suspend fun fetchTo(
-        source: SoundFontSource,
-        dest: File,
-        onProgress: (read: Long, total: Long) -> Unit,
-    ) {
-        val connection = (URL(source.url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = TIMEOUT_MS
-            readTimeout = TIMEOUT_MS
-            instanceFollowRedirects = true
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", "FuMiVoice/1.0")
-        }
+    /** 把进度写回任务表；下载线程只在这里改状态，避免多处竞态。 */
+    private fun reportProgress(source: SoundFontSource, read: Long, total: Long) {
+        _tasks.value = _tasks.value + (
+            source.id to DownloadState(
+                sourceId = source.id,
+                displayName = source.displayName,
+                bytesRead = read,
+                totalBytes = total,
+            )
+            )
+    }
+
+    /**
+     * 分卷音色库：逐卷下载到各自的临时文件，再按声明顺序首尾相接拼成完整文件。
+     *
+     * 分卷是上游为了绕过单文件体积上限切开的，缺任何一卷都拼不出可用的音色库，
+     * 所以中途失败就直接抛错，由调用方走统一的失败处理（不会留下半截成品）。
+     */
+    private suspend fun fetchParts(source: SoundFontSource, dest: File) {
+        val total = source.approxBytes
+        val partFiles = mutableListOf<File>()
+        var done = 0L
 
         try {
-            val code = connection.responseCode
-            if (code !in 200..299) {
-                throw IllegalStateException("服务器返回 HTTP $code")
-            }
-            val total = connection.contentLengthLong.takeIf { it > 0 } ?: source.approxBytes
-
-            var read = 0L
-            val buffer = ByteArray(BUFFER_SIZE)
-            connection.inputStream.use { input ->
-                FileOutputStream(dest).use { output ->
-                    while (true) {
-                        currentCoroutineContext().ensureActive()
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        output.write(buffer, 0, n)
-                        read += n
-                        onProgress(read, total)
-                    }
-                    output.flush()
+            source.parts.forEachIndexed { index, partUrl ->
+                val partFile = File(context.cacheDir, "sf_${source.id}_$index.part")
+                partFiles += partFile
+                val offset = done
+                // 单卷的总长是它自己的，进度条按整包体积算，所以统一用 approxBytes 当分母
+                DownloadEngine.downloadTo(partUrl, partFile) { read, _ ->
+                    reportProgress(source, offset + read, total)
                 }
+                done += partFile.length()
+                reportProgress(source, done, total)
             }
-            if (read == 0L) throw IllegalStateException("下载内容为空")
+
+            FileOutputStream(dest).use { out ->
+                partFiles.forEach { part ->
+                    part.inputStream().use { it.copyTo(out) }
+                }
+                out.flush()
+            }
         } finally {
-            connection.disconnect()
+            partFiles.forEach { it.delete() }
         }
     }
 }

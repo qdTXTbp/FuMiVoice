@@ -23,6 +23,7 @@ import com.fumi.voice.player.PlayState
 import com.fumi.voice.ui.FuMiVoiceApp
 import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.FuMiVoiceTheme
+import com.fumi.voice.util.AppLanguage
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -40,6 +41,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         askNotificationPermission()
+
+        // 语言偏好必须在 setContent 之前落到 Resources 上，
+        // 否则首帧仍按系统语言渲染，切换过语言的用户每次启动都会看到一次闪烁。
+        AppLanguage.apply(this, AppLanguage(this).current(), force = true)
 
         val app = application as App
         midiUri.value = extractMidiUri(intent)
@@ -69,6 +74,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         extractMidiUri(intent)?.let { midiUri.value = it }
+    }
+
+    /**
+     * 系统配置变更（旋转、深浅色、系统语言）会把 Activity 的 Resources 重置回系统语言，
+     * 把应用内选择的语言冲掉。这里强制重写一次，否则用户转个屏，界面就从英文变回中文。
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AppLanguage.apply(this, AppLanguage(this).current(), force = true)
     }
 
     /** 从桌面按 Home 时自动进小窗，这样播放不会被打断。 */

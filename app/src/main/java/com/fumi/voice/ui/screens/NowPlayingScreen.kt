@@ -7,23 +7,30 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import android.content.res.Configuration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -58,10 +65,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fumi.voice.R
 import com.fumi.voice.player.ActiveNote
 import com.fumi.voice.player.MidiPlayerManager
 import com.fumi.voice.player.PlayState
@@ -95,6 +105,9 @@ fun NowPlayingScreen(
     onOpenSoundFonts: () -> Unit,
     isInPip: Boolean = false,
     onEnterPip: () -> Unit = {},
+    /** 沉浸模式：由外壳负责收掉顶栏与底部导航，这里只留一个开关按钮。 */
+    immersive: Boolean = false,
+    onToggleImmersive: (() -> Unit)? = null,
     /** 是否驱动瀑布逐帧重绘；非当前标签页时关掉，省下后台重绘。 */
     animateWaterfall: Boolean = true,
     modifier: Modifier = Modifier,
@@ -132,17 +145,38 @@ fun NowPlayingScreen(
         return
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-
-        // ---------- 钢琴瀑布 ----------
+    // 瀑布区抽成 lambda：竖屏时在上、横屏时在左。
+    // 两种形态共用同一份渲染逻辑，避免「横屏瀑布」变成另一套要各自维护的实现。
+    val waterfallArea: @Composable (Modifier) -> Unit = { stageModifier ->
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = stageModifier
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color(0xFF141419)),
         ) {
+            // 沉浸开关放在瀑布角上：沉浸时下面那排控件会被收掉，
+            // 开关本身必须留在始终看得见的地方，否则进去就出不来。
+            if (onToggleImmersive != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .clickable(onClick = onToggleImmersive),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (immersive) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                        contentDescription = stringResource(
+                            if (immersive) R.string.action_exit_immersive
+                            else R.string.action_enter_immersive
+                        ),
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp),
+                    )
+                }
+            }
             // 瀑布区有三种形态：有音符就画瀑布、纯音频文件给占位说明、
             // 没选曲目给空状态。用一个序号描述它，切换形态时淡入淡出，
             // 这样刚载入曲目时空状态不会"啪"地一下直接变成瀑布。
@@ -207,7 +241,10 @@ fun NowPlayingScreen(
             }
             }
         }
+    }
 
+    // 控制区同理：竖屏在下、横屏在右，两块共用同一份实现。
+    val panel: @Composable () -> Unit = {
         // ---------- 曲目信息 ----------
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
@@ -425,6 +462,43 @@ fun NowPlayingScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+    }
+
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    when {
+        // 沉浸：整屏只留瀑布，顶栏/底部导航由外壳收掉
+        immersive -> waterfallArea(modifier.fillMaxSize())
+
+        // 横屏：瀑布占满左侧，控制栏收进右侧固定宽度里自己滚动。
+        // 竖屏那套「从上往下堆」搬到横屏会变成"瀑布很扁、控件很长一根"，两头都不好用。
+        landscape -> Row(modifier = modifier.fillMaxSize()) {
+            waterfallArea(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            )
+            Column(
+                modifier = Modifier
+                    .width(360.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(end = 16.dp),
+            ) {
+                panel()
+            }
+        }
+
+        else -> Column(modifier = modifier.fillMaxSize()) {
+            waterfallArea(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+            panel()
+        }
     }
 
     if (showMixer) {

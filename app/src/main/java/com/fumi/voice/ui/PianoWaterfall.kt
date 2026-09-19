@@ -443,10 +443,17 @@ private fun DrawScope.drawWaterfall(
             ?: colorForChannel(note.channel)
         val sounding = note.startTimeMs <= nowMs && nowMs <= note.startTimeMs + note.durationMs
 
+        // 纵深：离击键线越远越淡。
+        // 瀑布上方那些还在等落下来的音符如果全都满不透明，整片会糊成一块色墙；
+        // 按距离平方衰减后近处清楚、远处退成背景，纵向层次立刻出来了。
+        // 远处保留 45% 而不是淡到看不见——太淡会让人以为音符丢了。
+        val depth = ((hitY - clippedTop) / hitY).coerceIn(0f, 1f)
+        val fade = 1f - depth * depth * 0.55f
+
         // 正在发声的音符加一层柔光，与 FuFumidi 的处理一致
         if (sounding) {
             drawRoundRect(
-                color = color.copy(alpha = 0.35f),
+                color = color.copy(alpha = 0.35f * fade),
                 topLeft = Offset(x - 3f, clippedTop - 3f),
                 size = Size(noteWidth + 6f, height + 6f),
                 cornerRadius = CornerRadius(6f, 6f),
@@ -455,7 +462,7 @@ private fun DrawScope.drawWaterfall(
 
         drawRoundRect(
             brush = Brush.verticalGradient(
-                colors = listOf(color, color.copy(alpha = 0.82f)),
+                colors = listOf(color.copy(alpha = fade), color.copy(alpha = 0.82f * fade)),
                 startY = clippedTop,
                 endY = clippedTop + height,
             ),
@@ -466,7 +473,7 @@ private fun DrawScope.drawWaterfall(
 
         // 右上角一条高光，让方块有体积感
         drawRoundRect(
-            color = Color.White.copy(alpha = if (sounding) 0.5f else 0.22f),
+            color = Color.White.copy(alpha = (if (sounding) 0.5f else 0.22f) * fade),
             topLeft = Offset(x + 1.5f, clippedTop + 1.5f),
             size = Size(noteWidth - 3f, (height * 0.22f).coerceAtMost(6f)),
             cornerRadius = CornerRadius(2f, 2f),
@@ -475,6 +482,22 @@ private fun DrawScope.drawWaterfall(
 
     // ---------- 粒子 ----------
     updateAndDrawParticles(particles, activeKeys, layout, w, hitY, whiteWidth)
+
+    // ---------- 击键线上的光带 ----------
+    // 在击键线上方铺一层向上渐隐的柔光：音符落进这条带子里就是"正在发声"，
+    // 比单独一根 2px 的线更容易看出节奏落点。
+    run {
+        val glowHeight = 48f
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0x006C8CFF), Color(0x386C8CFF)),
+                startY = hitY - glowHeight,
+                endY = hitY,
+            ),
+            topLeft = Offset(0f, hitY - glowHeight),
+            size = Size(w, glowHeight),
+        )
+    }
 
     // ---------- 击键线 ----------
     drawLine(

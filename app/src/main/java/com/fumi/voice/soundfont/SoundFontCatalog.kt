@@ -21,6 +21,13 @@ data class SoundFontSource(
      * 标慢的条目依然可用（体积小的很快就能下完），但界面要提前告知用户。
      */
     val slow: Boolean = false,
+    /**
+     * 分卷资源：按顺序下载后拼成一个文件。
+     *
+     * 上游把超大音色库切成了几个 `.sf2.partN` 分卷（单文件超过平台上限），
+     * 这里按声明顺序逐卷拉取并首尾相接；[url] 留空即可。
+     */
+    val parts: List<String> = emptyList(),
 )
 
 /**
@@ -68,6 +75,61 @@ object SoundFontCatalog {
             approxBytes = 20_573_000,
             license = "CC BY 4.0",
             slow = true,
+        ),
+
+        // ---------- 旗舰音色库 ----------
+        //
+        // 这一组来自电脑端 FuFumidi 的官方音色库镜像，体积明显更大、
+        // 采样更完整，适合对音质有要求的场景。全部走 GitHub Releases，
+        // 因此下载时会由 DownloadEngine 自动套用国内镜像并按分段并发加速。
+        //
+        // 许可证说明：GeneralUser GS / FluidR3 的许可是公开且明确的；
+        // SGM、Arachno 在上游没有随包附许可文件，这里只如实标注出处，
+        // 不替作者下结论——使用者应以发布页为准。
+        SoundFontSource(
+            id = "generaluser_gs",
+            fileName = "GeneralUser.GS.v1.471.sf2",
+            displayName = "GeneralUser GS 1.471",
+            description = "完整 GM/GS，自带 GS 变体与鼓组，音色自然、体积适中",
+            category = "旗舰音色库",
+            url = "https://github.com/monologue82/FuFumidiSoundFonts/releases/download/v1/GeneralUser.GS.v1.471.sf2",
+            approxBytes = 31_281_186,
+            license = "GeneralUser GS License v2.0",
+        ),
+        SoundFontSource(
+            id = "fluidr3_gm",
+            fileName = "FluidR3_GM.sf2",
+            displayName = "FluidR3 GM（完整版）",
+            description = "128 音色 + 鼓组的经典完整采样库，钢琴与弦乐表现力强",
+            category = "旗舰音色库",
+            url = "https://github.com/monologue82/FuFumidiSoundFonts/releases/download/v1/FluidR3_GM.sf2",
+            approxBytes = 148_398_306,
+            license = "MIT（Frank Wen）",
+        ),
+        SoundFontSource(
+            id = "sgm_v2",
+            fileName = "SGM_V2_01.sf2",
+            displayName = "SGM-V2.01（分卷）",
+            description = "GS/GM 兼容的大体量音色库，分 3 卷下载后自动合并",
+            category = "旗舰音色库",
+            url = "",
+            approxBytes = 305_414_752,
+            license = "出处：FuFumidiSoundFonts 镜像，许可以发布页为准",
+            parts = listOf(
+                "https://github.com/monologue82/FuFumidiSoundFonts/releases/download/v1/SGM_V2_01_part1.sf2",
+                "https://github.com/monologue82/FuFumidiSoundFonts/releases/download/v1/SGM_V2_01_part2.sf2",
+                "https://github.com/monologue82/FuFumidiSoundFonts/releases/download/v1/SGM_V2_01_part3.sf2",
+            ),
+        ),
+        SoundFontSource(
+            id = "arachno",
+            fileName = "Arachno_SoundFont_Version_1.0.sf2",
+            displayName = "Arachno SoundFont 1.0",
+            description = "影视配乐取向的大体量音色库，动态与层次感突出",
+            category = "旗舰音色库",
+            url = "https://github.com/qdTXTbp/FuFumidi/releases/download/soundfonts-v1/Arachno_SoundFont_Version_1.0.sf2",
+            approxBytes = 155_405_818,
+            license = "出处：FuFumidi 音色库发布页，许可以发布页为准",
         ),
 
         // ---------- 单音色强化 ----------

@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.annotation.StringRes
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -46,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,10 +59,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.fumi.voice.App
+import com.fumi.voice.R
 import com.fumi.voice.library.M3uCodec
 import com.fumi.voice.library.MidiLibraryManager
 import com.fumi.voice.library.PlayHistoryManager
@@ -80,6 +86,7 @@ import com.fumi.voice.ui.screens.LibraryScreen
 import com.fumi.voice.ui.screens.NowPlayingScreen
 import com.fumi.voice.ui.screens.SoundFontScreen
 import com.fumi.voice.ui.screens.CloudSyncScreen
+import com.fumi.voice.ui.screens.SettingsScreen
 import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
@@ -87,6 +94,7 @@ import com.fumi.voice.ui.theme.Motion
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.util.DocumentTreeScanner
+import com.fumi.voice.util.findActivity
 import com.fumi.voice.update.AppUpdater
 import com.fumi.voice.ui.components.UpdateAvailableDialog
 import com.fumi.voice.ui.components.UpdateDownloadDialog
@@ -96,11 +104,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    PLAY("播放", Icons.Default.Piano),
-    LIBRARY("曲库", Icons.Default.LibraryMusic),
-    SOUNDFONT("音色", Icons.Default.Tune),
-    CLOUD("云同步", Icons.Default.Cloud),
+// 标题文案走资源 id 而不是写死的字符串：切到英文时导航栏与顶栏才会跟着变，
+// 只把设置页翻译了、四个主标签还是中文，那叫半翻译。
+private enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    PLAY(R.string.tab_play, Icons.Default.Piano),
+    LIBRARY(R.string.tab_library, Icons.Default.LibraryMusic),
+    SOUNDFONT(R.string.tab_soundfont, Icons.Default.Tune),
+    CLOUD(R.string.tab_cloud, Icons.Default.Cloud),
 }
 
 /**
@@ -120,6 +130,8 @@ fun FuMiVoiceApp(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val player = app.player
+    // 沉浸模式要操作窗口的系统栏，需要真实的 Activity；预览环境里为 null，下面都做了空保护
+    val activity = remember(context) { context.findActivity() }
 
     val playlistManager = remember { PlaylistManager(context) }
     val downloader = remember { app.soundFontDownloader }
@@ -214,6 +226,10 @@ fun FuMiVoiceApp(
     var updateInfo by remember { mutableStateOf<AppUpdater.UpdateInfo?>(null) }
     var updateChecking by remember { mutableStateOf(false) }
     var updateProgress by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    /** 设置页是否打开；入口在云同步页的标题行右侧。 */
+    var showSettings by remember { mutableStateOf(false) }
+    /** 沉浸模式：播放页收掉顶栏、底部导航与系统栏，只留瀑布。 */
+    var immersive by remember { mutableStateOf(false) }
 
     /**
      * 检查更新。
@@ -529,18 +545,61 @@ fun FuMiVoiceApp(
         return
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Charcoal)) {
-
-        AppHeader(
-            tab = tab,
-            playerState = playerState,
-            trackCount = tracks.size,
-            onHeaderAction = {
-                openOnePicker.launch(arrayOf("audio/midi", "audio/x-midi", "application/x-midi", "*/*"))
-            },
+    // 设置页自成一层：它不属于任何一个标签页，进入后整屏接管。
+    // 做成覆盖层而不是第 5 个标签页——设置是低频入口，
+    // 占掉导航栏一格会稀释「播放/曲库/音色/云同步」这四个高频页。
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
             onCheckUpdate = { checkUpdate(silent = false) },
             updateChecking = updateChecking,
+            modifier = Modifier.fillMaxSize(),
         )
+        // 设置页里也有「检查更新」，弹窗必须在这一层同样渲染，
+        // 否则从设置页查到新版本会静默无反应。
+        UpdateDialogs(
+            info = updateInfo,
+            progress = updateProgress,
+            onUpdate = { downloadAndInstall(it) },
+            onLater = { updateInfo = null },
+        )
+        return
+    }
+
+    // 沉浸只在播放页成立：切到别的标签页自动退出，
+    // 否则用户会卡在一个既没有顶栏也没有导航栏、退不出去的页面里。
+    val fullscreen = immersive && tab == Tab.PLAY.ordinal
+
+    // 系统栏跟着一起收/放。onDispose 里必须恢复：
+    // 沉浸状态下直接退到后台再回来，不恢复就会留下一个没有状态栏的窗口。
+    DisposableEffect(fullscreen) {
+        val window = activity?.window
+        val controller = window?.let { WindowInsetsControllerCompat(it, it.decorView) }
+        if (fullscreen) {
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(Charcoal)) {
+
+        // 沉浸模式下顶栏一并收掉
+        if (!fullscreen) {
+            AppHeader(
+                tab = tab,
+                playerState = playerState,
+                trackCount = tracks.size,
+                onHeaderAction = {
+                    openOnePicker.launch(arrayOf("audio/midi", "audio/x-midi", "application/x-midi", "*/*"))
+                },
+                onCheckUpdate = { checkUpdate(silent = false) },
+                updateChecking = updateChecking,
+            )
+        }
 
         // 展开/收起由 MessageBanner 内部做动画，这里只负责给值
         MessageBanner(message = message, onDismiss = { message = null })
@@ -571,6 +630,8 @@ fun FuMiVoiceApp(
                     },
                     onOpenSoundFonts = { goToTab(2) },
                     onEnterPip = onEnterPip,
+                    immersive = immersive,
+                    onToggleImmersive = { immersive = !immersive },
                     // 滑动过程中放行（画面正在过渡，冻住会看出来），
                     // 停稳后只有停在播放页才继续动画
                     animateWaterfall = pagerState.isScrollInProgress ||
@@ -718,39 +779,44 @@ fun FuMiVoiceApp(
 
                 Tab.CLOUD -> CloudSyncScreen(
                     onRefresh = { reloadLibrary(); reloadPlaylists() },
+                    onOpenSettings = { showSettings = true },
                 )
             }
         }
 
-        NavigationBar(containerColor = CharcoalRaised) {
-            Tab.entries.forEachIndexed { index, item ->
-                val selected = tab == index
-                // 选中图标轻微放大。M3 的 NavigationBarItem 只动指示器底色，
-                // 图标本身没有任何反馈，加上缩放后"现在在哪一页"更一眼可辨。
-                val iconScale by animateFloatAsState(
-                    targetValue = if (selected) 1f else 0.86f,
-                    animationSpec = Motion.spring(),
-                    label = "navIconScale",
-                )
-                NavigationBarItem(
-                    selected = selected,
-                    onClick = { goToTab(index) },
-                    icon = {
-                        Icon(
-                            item.icon,
-                            contentDescription = item.label,
-                            modifier = Modifier.size(22.dp).scale(iconScale),
-                        )
-                    },
-                    label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = Color.White,
-                        indicatorColor = Indigo,
-                        unselectedIconColor = TextSecondary,
-                        unselectedTextColor = TextSecondary,
-                    ),
-                )
+        // 沉浸模式下连底部导航一起收掉：只留瀑布才叫全屏，
+        // 还留着一排导航栏的"沉浸"其实只是"把状态栏藏起来"。
+        if (!fullscreen) {
+            NavigationBar(containerColor = CharcoalRaised) {
+                Tab.entries.forEachIndexed { index, item ->
+                    val selected = tab == index
+                    // 选中图标轻微放大。M3 的 NavigationBarItem 只动指示器底色，
+                    // 图标本身没有任何反馈，加上缩放后"现在在哪一页"更一眼可辨。
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (selected) 1f else 0.86f,
+                        animationSpec = Motion.spring(),
+                        label = "navIconScale",
+                    )
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = { goToTab(index) },
+                        icon = {
+                            Icon(
+                                item.icon,
+                                contentDescription = stringResource(item.labelRes),
+                                modifier = Modifier.size(22.dp).scale(iconScale),
+                            )
+                        },
+                        label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelMedium) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color.White,
+                            selectedTextColor = Color.White,
+                            indicatorColor = Indigo,
+                            unselectedIconColor = TextSecondary,
+                            unselectedTextColor = TextSecondary,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -765,14 +831,36 @@ fun FuMiVoiceApp(
     }
 
     // 更新弹窗：发现新版本 → 用户确认 → 下载（进度）→ 拉起系统安装器
-    updateInfo?.let { info ->
+    UpdateDialogs(
+        info = updateInfo,
+        progress = updateProgress,
+        onUpdate = { downloadAndInstall(it) },
+        onLater = { updateInfo = null },
+    )
+}
+
+/**
+ * 更新相关弹窗。
+ *
+ * 抽成独立函数是因为它有两处宿主：主界面和设置页。
+ * 设置页是整屏接管后直接 return 的，重复写一份必然会出现
+ * 「改了主界面忘了改设置页」的漂移。
+ */
+@Composable
+private fun UpdateDialogs(
+    info: AppUpdater.UpdateInfo?,
+    progress: Pair<Long, Long>?,
+    onUpdate: (AppUpdater.UpdateInfo) -> Unit,
+    onLater: () -> Unit,
+) {
+    info?.let {
         UpdateAvailableDialog(
-            info = info,
-            onUpdate = { downloadAndInstall(info) },
-            onLater = { updateInfo = null },
+            info = it,
+            onUpdate = { onUpdate(it) },
+            onLater = onLater,
         )
     }
-    updateProgress?.let { (read, total) ->
+    progress?.let { (read, total) ->
         UpdateDownloadDialog(read = read, total = total)
     }
 }
@@ -813,7 +901,7 @@ private fun AppHeader(
             ) { item ->
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        item.label,
+                        stringResource(item.labelRes),
                         style = MaterialTheme.typography.titleLarge,
                         color = Color.White,
                         maxLines = 1,
@@ -836,7 +924,7 @@ private fun AppHeader(
                 exit = fadeOut(animationSpec = Motion.spec(Motion.Instant)),
             ) {
                 IconButton(onClick = onHeaderAction) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = "打开单个 MIDI 文件", tint = Color.White)
+                    Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.action_open_midi), tint = Color.White)
                 }
             }
 
@@ -851,7 +939,7 @@ private fun AppHeader(
                 IconButton(onClick = onCheckUpdate, enabled = !updateChecking) {
                     Icon(
                         Icons.Default.SystemUpdateAlt,
-                        contentDescription = "检查更新",
+                        contentDescription = stringResource(R.string.action_check_update),
                         tint = if (updateChecking) TextOnPrimarySoft else Color.White,
                     )
                 }
@@ -863,10 +951,13 @@ private fun AppHeader(
 /**
  * 顶栏副标题。
  *
- * 抽成普通函数是为了让 AnimatedContent 能按"目标页"取值——
+ * 抽成函数是为了让 AnimatedContent 能按"目标页"取值——
  * 在内容 lambda 里直接用外层的 `tab` 会读到已经变过去的值，
  * 结果新旧两页显示同一个副标题。
+ *
+ * 加了多语言后这些文案也要走资源，所以标成 @Composable。
  */
+@Composable
 private fun headerSubtitle(
     tab: Tab,
     playerState: com.fumi.voice.player.PlayerUiState,
@@ -874,13 +965,18 @@ private fun headerSubtitle(
 ): String = when (tab) {
     // 曲目名已经显示在瀑布下方，这里改为播报播放状态，避免重复
     Tab.PLAY -> when (playerState.playState) {
-        PlayState.PLAYING -> "正在播放"
-        PlayState.PAUSED -> "已暂停"
-        PlayState.STOPPED -> "未在播放"
+        PlayState.PLAYING -> stringResource(R.string.header_playing)
+        PlayState.PAUSED -> stringResource(R.string.header_paused)
+        PlayState.STOPPED -> stringResource(R.string.header_stopped)
     }
-    Tab.LIBRARY -> if (trackCount > 0) "$trackCount 首曲目" else "曲库为空"
-    Tab.SOUNDFONT -> playerState.soundFontName?.substringBeforeLast('.') ?: "未装载音色库"
-    Tab.CLOUD -> "云端同步"
+    Tab.LIBRARY -> if (trackCount > 0) {
+        stringResource(R.string.header_track_count, trackCount)
+    } else {
+        stringResource(R.string.header_library_empty)
+    }
+    Tab.SOUNDFONT -> playerState.soundFontName?.substringBeforeLast('.')
+        ?: stringResource(R.string.header_no_soundfont)
+    Tab.CLOUD -> stringResource(R.string.tab_cloud)
 }
 
 /** 文件名里的非法字符换掉，避免建文件失败。 */
