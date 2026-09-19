@@ -21,15 +21,23 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
   - MP3（LAME NDK 构建）
 - **桌面小组件**：锁屏 / 桌面播放控制与瀑布小部件
 - **现代化 UI**：Jetpack Compose + Material 3，全应用动效与手势切换
+- **多语言**：应用内可切换中文 / 英文，全部页面文案成对翻译
+- **横屏与沉浸**：横屏时瀑布独占左侧、控制栏收进右侧独立滚动；沉浸模式整屏只留瀑布
+- **在线音色库**：可下载 GeneralUser GS / FluidR3 GM / SGM-V2.01 等，
+  自动走国内镜像并分段并发下载，分卷资源自动合并
+- **设置页**：语言切换、检查更新、开发者信息与下载地址
 - **文件关联**：支持从文件管理器直接打开 MIDI 文件
 
 ## 下载
 
-- Release APK：**[FuMiVoice-1.0.1-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.1/FuMiVoice-1.0.1-release.apk)**
-- Release AAB（用于应用商店）：**[FuMiVoice-1.0.1-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.1/FuMiVoice-1.0.1-release.aab)**
+- Release APK：**[FuMiVoice-1.0.6-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.6/FuMiVoice-1.0.6-release.apk)**
+- Release AAB（用于应用商店）：**[FuMiVoice-1.0.6-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.6/FuMiVoice-1.0.6-release.aab)**
 - Release 页面：https://github.com/qdTXTbp/FuMiVoice/releases
 
 > 当前仅提供 `arm64-v8a` 版本，最低支持 Android 7.0（API 24）。
+
+> ⚠️ **从 1.0.5 及更早版本升级**：1.0.6 更换了签名密钥，无法覆盖安装，
+> 会提示「签名不一致」。请先卸载旧版再安装；卸载前建议用云同步把曲库与歌单备份到云端。
 
 ## 技术栈
 
