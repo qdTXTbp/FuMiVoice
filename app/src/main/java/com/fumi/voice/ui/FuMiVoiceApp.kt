@@ -103,6 +103,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 
 // 标题文案走资源 id 而不是写死的字符串：切到英文时导航栏与顶栏才会跟着变，
 // 只把设置页翻译了、四个主标签还是中文，那叫半翻译。
@@ -230,6 +233,8 @@ fun FuMiVoiceApp(
     var showSettings by remember { mutableStateOf(false) }
     /** 沉浸模式：播放页收掉顶栏、底部导航与系统栏，只留瀑布。 */
     var immersive by remember { mutableStateOf(false) }
+    // 手动横屏开关要用：系统把「自动旋转」关掉时，应用不主动转就永远停在竖屏
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     /**
      * 检查更新。
@@ -632,6 +637,12 @@ fun FuMiVoiceApp(
                     onEnterPip = onEnterPip,
                     immersive = immersive,
                     onToggleImmersive = { immersive = !immersive },
+                    onToggleLandscape = {
+                        // UNSPECIFIED 等于把决定权交还系统（即"回到自动旋转"）
+                        context.findActivity()?.requestedOrientation =
+                            if (isLandscape) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                            else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    },
                     // 滑动过程中放行（画面正在过渡，冻住会看出来），
                     // 停稳后只有停在播放页才继续动画
                     animateWaterfall = pagerState.isScrollInProgress ||

@@ -488,7 +488,7 @@ class MidiPlayerManager(val context: Context) {
     fun loadMidi(uri: Uri): Boolean {
         return try {
             val name = uri.lastPathSegment?.substringAfterLast('/') ?: "opened.mid"
-            val tempFile = File(context.cacheDir, "opened_${name.substringAfterLast('.', "mid")}")
+            val tempFile = File(context.cacheDir, openedCacheName(name))
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(tempFile).use { output -> input.copyTo(output) }
             } ?: return false
@@ -507,6 +507,17 @@ class MidiPlayerManager(val context: Context) {
             Log.e(TAG, "装载 MIDI 失败", e)
             false
         }
+    }
+
+    /**
+     * 外部文件落到缓存时的文件名。
+     *
+     * 必须连点号一起保留：早先写成 `"opened_" + 扩展名`，落出来是 `opened_mid`，
+     * 没有点号 → `File.extension` 为空 → 格式判定走了"普通音频"分支。
+     */
+    private fun openedCacheName(original: String): String {
+        val ext = original.substringAfterLast('.', "").lowercase().takeIf { it.isNotBlank() } ?: "mid"
+        return "opened.$ext"
     }
 
     /**
@@ -612,6 +623,13 @@ class MidiPlayerManager(val context: Context) {
     }
 
     private fun kindOf(path: String): StreamKind {
+        // 先认文件头，再退回扩展名。
+        //
+        // 只看扩展名会出事：文件管理器给过来的 URI 常常没有扩展名，
+        // 我们自己落缓存时也容易把扩展名弄丢（见 loadMidi）。那样一首 MIDI
+        // 会被判成"普通音频"——BASSMIDI 作为插件照样能出声，但不会解析音符、
+        // 也不会挂音色库，表现出来就是"瀑布是空的、音色没生效、可是能听"。
+        sniffKind(path)?.let { return it }
         val ext = File(path).extension.lowercase()
         return when (ext) {
             in MIDI_EXT -> StreamKind.MIDI
@@ -620,6 +638,22 @@ class MidiPlayerManager(val context: Context) {
             else -> StreamKind.OTHER
         }
     }
+
+    /** 按文件头识别格式（各格式魔数都在文件开头），认不出来返回 null 交给扩展名兜底。 */
+    private fun sniffKind(path: String): StreamKind? = runCatching {
+        File(path).inputStream().use { input ->
+            val head = ByteArray(12)
+            if (input.read(head) < 4) return@use null
+            when (String(head, 0, 4, Charsets.US_ASCII)) {
+                "MThd" -> StreamKind.MIDI
+                "fLaC" -> StreamKind.FLAC
+                "wvpk" -> StreamKind.WAVPACK
+                // RIFF / OggS 都是通用容器，交回通用的音频分支
+                "RIFF", "OggS" -> StreamKind.OTHER
+                else -> null
+            }
+        }
+    }.getOrNull()
 
     private fun loadPath(path: String): Boolean {
         releaseStream()

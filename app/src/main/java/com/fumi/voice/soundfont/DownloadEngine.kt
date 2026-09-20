@@ -74,18 +74,27 @@ object DownloadEngine {
     /**
      * 下载 [url] 到 [dest]，逐个候选地址尝试。
      *
+     * @param validate 对下载结果做格式校验（如音色库必须是 RIFF/sfbk）。
+     *   校验不通过会当成**这条链路**失败并换下一条 —— 这一条很关键：
+     *   实测 ghfast / gh-proxy / ghproxy 会返回伪造的 `206` 加正确的
+     *   `Content-Range`，正文却是自家的 HTML 错误页；只按"有没有抛异常"
+     *   判断的话，会拿着一页 HTML 一路走到最后，最后报"文件校验未通过"，
+     *   而那时已经没机会换链路了。
      * @param onProgress 已下载字节 / 总字节（总长未知时为 0）
      * @throws RuntimeException 所有候选地址都失败，异常信息里汇总了每条链路的原因
      */
     suspend fun downloadTo(
         url: String,
         dest: File,
+        validate: ((File) -> Boolean)? = null,
         onProgress: (read: Long, total: Long) -> Unit,
     ) = coroutineScope {
         val failures = mutableListOf<String>()
         for (candidate in candidates(url)) {
             try {
                 fetchOne(candidate, dest, onProgress)
+                if (looksLikeHtml(dest)) throw IllegalStateException("返回的是网页而不是文件")
+                if (validate != null && !validate(dest)) throw IllegalStateException("内容校验未通过")
                 return@coroutineScope
             } catch (e: CancellationException) {
                 dest.delete()
@@ -97,6 +106,24 @@ object DownloadEngine {
             }
         }
         throw RuntimeException("下载失败，已尝试：" + failures.joinToString("；"))
+    }
+
+    /**
+     * 内容看起来是不是一张网页。
+     *
+     * 用来识破"镜像伪装成下载成功、实际给错误页"的情况：正规的二进制资源
+     * （音色库 / APK / 音频）不会以 `<!doctype` 或 `<html` 开头。
+     */
+    private fun looksLikeHtml(file: File): Boolean {
+        if (!file.exists() || file.length() == 0L) return true
+        return runCatching {
+            val head = ByteArray(256)
+            val n = file.inputStream().use { it.read(head) }
+            if (n <= 0) return@runCatching true
+            // 按 ISO-8859-1 解码：任何字节都能映射成字符，不会因为非法 UTF-8 抛错
+            val text = String(head, 0, n, Charsets.ISO_8859_1).trimStart().lowercase()
+            text.startsWith("<!doctype") || text.startsWith("<html")
+        }.getOrDefault(false)
     }
 
     // ---------------- 单条链路 ----------------

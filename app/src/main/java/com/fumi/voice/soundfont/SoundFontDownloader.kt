@@ -75,7 +75,11 @@ class SoundFontDownloader(
         return try {
             val info = withContext(Dispatchers.IO) {
                 if (source.parts.isEmpty()) {
-                    DownloadEngine.downloadTo(source.url, tempFile) { read, total ->
+                    DownloadEngine.downloadTo(
+                        source.url,
+                        tempFile,
+                        validate = manager::looksLikeSoundFont,
+                    ) { read, total ->
                         reportProgress(source, read, total)
                     }
                 } else {

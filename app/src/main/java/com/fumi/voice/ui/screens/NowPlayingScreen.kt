@@ -91,6 +91,7 @@ import com.fumi.voice.ui.theme.TimecodeStyle
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatTempo
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.filled.ScreenRotation
 
 /** 倍速档位，覆盖需求要求的 0.25x - 4x。 */
 private val TEMPO_STEPS = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f, 4.0f)
@@ -108,6 +109,7 @@ fun NowPlayingScreen(
     /** 沉浸模式：由外壳负责收掉顶栏与底部导航，这里只留一个开关按钮。 */
     immersive: Boolean = false,
     onToggleImmersive: (() -> Unit)? = null,
+    onToggleLandscape: (() -> Unit)? = null,
     /** 是否驱动瀑布逐帧重绘；非当前标签页时关掉，省下后台重绘。 */
     animateWaterfall: Boolean = true,
     modifier: Modifier = Modifier,
@@ -145,6 +147,9 @@ fun NowPlayingScreen(
         return
     }
 
+    // 横竖屏判定提前到这里：瀑布区里的横屏开关要用到它
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     // 瀑布区抽成 lambda：竖屏时在上、横屏时在左。
     // 两种形态共用同一份渲染逻辑，避免「横屏瀑布」变成另一套要各自维护的实现。
     val waterfallArea: @Composable (Modifier) -> Unit = { stageModifier ->
@@ -153,30 +158,7 @@ fun NowPlayingScreen(
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color(0xFF141419)),
         ) {
-            // 沉浸开关放在瀑布角上：沉浸时下面那排控件会被收掉，
-            // 开关本身必须留在始终看得见的地方，否则进去就出不来。
-            if (onToggleImmersive != null) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(10.dp)
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .clickable(onClick = onToggleImmersive),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        if (immersive) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                        contentDescription = stringResource(
-                            if (immersive) R.string.action_exit_immersive
-                            else R.string.action_enter_immersive
-                        ),
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp),
-                    )
-                }
-            }
+            // 沉浸 / 横屏两个开关统一放在瀑布之后绘制，原因见下面那段说明。
             // 瀑布区有三种形态：有音符就画瀑布、纯音频文件给占位说明、
             // 没选曲目给空状态。用一个序号描述它，切换形态时淡入淡出，
             // 这样刚载入曲目时空状态不会"啪"地一下直接变成瀑布。
@@ -239,6 +221,61 @@ fun NowPlayingScreen(
                     },
                 )
             }
+            }
+
+            // 沉浸 / 横屏两个开关必须画在瀑布**之后**。
+            //
+            // 瀑布第一件事就是 drawRect(Color(0xFF141419)) 把整块画布铺满，
+            // 而 Compose 按组合顺序绘制；早先把开关写在 AnimatedContent 之前，
+            // 结果只要有音符、瀑布一画出来，开关就被整块盖住——
+            // 「播放曲目时找不到沉浸按钮」就是这么来的。
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // 手动横屏：系统关掉「自动旋转」时，用户没有任何别的办法把界面转过来
+                if (onToggleLandscape != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .clickable(onClick = onToggleLandscape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.ScreenRotation,
+                            contentDescription = stringResource(
+                                if (landscape) R.string.action_exit_landscape
+                                else R.string.action_enter_landscape
+                            ),
+                            tint = Color.White,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
+                if (onToggleImmersive != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .clickable(onClick = onToggleImmersive),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            if (immersive) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                            contentDescription = stringResource(
+                                if (immersive) R.string.action_exit_immersive
+                                else R.string.action_enter_immersive
+                            ),
+                            tint = Color.White,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -471,8 +508,6 @@ fun NowPlayingScreen(
 
         Spacer(Modifier.height(12.dp))
     }
-
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     when {
         // 沉浸：整屏只留瀑布，顶栏/底部导航由外壳收掉

@@ -50,6 +50,8 @@
     <!-- Immersive mode -->
     <string name="action_enter_immersive">Enter immersive mode</string>
     <string name="action_exit_immersive">Exit immersive mode</string>
+    <string name="action_enter_landscape">Switch to landscape</string>
+    <string name="action_exit_landscape">Back to portrait</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="common_got_it">Got it</string>
     <string name="update_found_title">Version %1$s available</string>

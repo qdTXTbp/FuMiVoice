@@ -181,7 +181,13 @@ class SoundFontManager(private val context: Context) {
      * 合法的 RIFF 容器：SoundFont2/3 为 "sfbk"，DLS 为 "DLS "。
      * 这样可以挡掉改名成 .sf2 的其它文件（例如网页、压缩包）。
      */
-    private fun looksLikeSoundFont(file: File): Boolean {
+    /**
+     * 按文件头判断是不是音色库（RIFF 容器 + sfbk/DLS 类型）。
+     *
+     * 公开给下载链路当校验器用：下载"成功"不代表拿到了音色库，
+     * 镜像可能返回自己的 HTML 错误页，必须在收编之前验一次。
+     */
+    fun looksLikeSoundFont(file: File): Boolean {
         if (file.length() < 1024) return false
         return runCatching {
             file.inputStream().use { input ->

@@ -50,6 +50,8 @@
     <!-- 沉浸模式 -->
     <string name="action_enter_immersive">进入沉浸模式</string>
     <string name="action_exit_immersive">退出沉浸模式</string>
+    <string name="action_enter_landscape">横屏显示</string>
+    <string name="action_exit_landscape">恢复竖屏</string>
     <string name="common_got_it">知道了</string>
     <string name="update_found_title">发现新版本 %1$s</string>
     <string name="update_recommend">建议更新到最新版本。</string>
