@@ -264,8 +264,21 @@ fun FuMiVoiceApp(
     /** 下载新版本并拉起系统安装器。 */
     fun downloadAndInstall(info: AppUpdater.UpdateInfo) {
         updateInfo = null
-        updateProgress = 0L to 0L
         scope.launch {
+            // ★ 上次已经下好、只是没装成（安装器被关掉 / 没确认）：直接安装，不再重下
+            val cached = withContext(Dispatchers.IO) {
+                runCatching { AppUpdater.cachedApk(context, info) }.getOrNull()
+            }
+            if (cached != null) {
+                val launched = runCatching { AppUpdater.install(context, cached) }.getOrDefault(false)
+                message = if (launched) {
+                    context.getString(R.string.app_install_from_cache)
+                } else {
+                    context.getString(R.string.app_allow_unknown_sources)
+                }
+                return@launch
+            }
+            updateProgress = 0L to 0L
             val result = runCatching {
                 AppUpdater.download(context, info) { read, total ->
                     // 回调在 IO 线程；进度写回 Compose 状态统一回到主线程

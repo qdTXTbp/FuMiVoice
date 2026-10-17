@@ -245,6 +245,7 @@
     <string name="pl_join">Add</string>
     <string name="app_up_to_date">You are up to date (v%1$s)</string>
     <string name="app_check_update_failed">Update check failed</string>
+    <string name="app_install_from_cache">Package already downloaded — opening installer</string>
     <string name="app_install_opened">The system installer is open — just confirm to install</string>
     <string name="app_allow_unknown_sources">Allow "Install unknown apps" in system settings, then come back and tap update once more</string>
     <string name="app_update_download_failed">Could not download the update</string>

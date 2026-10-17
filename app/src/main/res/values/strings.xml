@@ -244,6 +244,7 @@
     <string name="pl_join">加入</string>
     <string name="app_up_to_date">已是最新版本（v%1$s）</string>
     <string name="app_check_update_failed">检查更新失败</string>
+    <string name="app_install_from_cache">安装包已下载，正在打开安装器（无需重新下载）</string>
     <string name="app_install_opened">已打开系统安装界面，确认安装即可</string>
     <string name="app_allow_unknown_sources">请在系统设置里允许「安装未知应用」，再回来点一次更新</string>
     <string name="app_update_download_failed">更新包下载失败</string>

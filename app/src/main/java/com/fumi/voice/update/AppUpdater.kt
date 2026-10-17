@@ -71,6 +71,8 @@ object AppUpdater {
      * @throws RuntimeException 所有镜像都失败（把每个镜像的失败原因一并抛出，便于排查）。
      */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
+        // 顺手清掉「上个版本已装好」的旧安装包（不碰尚未安装的新包）
+        pruneInstalled(context)
         val text = fetchText(context, "$VERSION_ASSET")
         val json = try {
             JSONObject(text.trim())
@@ -91,7 +93,15 @@ object AppUpdater {
     // ---------------- 下载 ----------------
 
     /**
-     * 下载新版 APK 到 cacheDir。
+     * 下载新版 APK。
+     *
+     * ★ 放 `filesDir/updates` 而不是 `cacheDir`：cacheDir 会被系统在存储紧张时清掉，
+     *   而这里最典型的场景恰恰是「下完没装成」——安装器被中途关掉、用户没确认、
+     *   或者装到一半切走了应用。那份 40MB 的包必须留到真正装好为止，
+     *   所以不能放在随时会被回收的目录里。
+     * ★ 目标版本已经下好并校验过时**直接复用**，不再走网络（见 [cachedApk]）。
+     * ★ 下载先写 `.part`，校验通过才改名为最终文件：半途失败不会留下
+     *   「看起来是完整包」的文件，也就不会出现装了半截包的情况。
      *
      * 下载完会先校验「是同一个包名、且版本号不低于 version.json 里声明的」，
      * 避免镜像返回错误页或被缓存的旧包被当成新版装上去。
@@ -103,24 +113,72 @@ object AppUpdater {
         info: UpdateInfo,
         onProgress: (read: Long, total: Long) -> Unit,
     ): File = withContext(Dispatchers.IO) {
-        val dir = File(context.cacheDir, "updates").apply { if (!exists()) mkdirs() }
-        // 清掉上一次留下的包，避免多个版本堆在 cache 里
-        dir.listFiles()?.forEach { if (it.isFile) it.delete() }
+        // 上次已经下好且校验通过：直接复用，用户不必再下一次
+        cachedApk(context, info)?.let { return@withContext it }
+
+        val dir = updatesDir(context)
         val dest = File(dir, "FuMiVoice-${info.versionName}.apk")
+        // 只清别的版本（含残留的 .part），本版本的目标文件留到最后一步覆盖
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name != dest.name && !f.name.startsWith("FuMiVoice-${info.versionName}.apk.")) f.delete()
+        }
+        val part = File(dir, dest.name + ".part")
         val failures = mutableListOf<String>()
 
         for (url in UpdateSource.releaseUrls(context, info.apkAsset)) {
             try {
-                fetchTo(url, dest, onProgress)
-                verifyApk(context, dest, info)
+                part.delete()
+                fetchTo(url, part, onProgress)
+                verifyApk(context, part, info)
+                // 校验通过才转正；renameTo 同盘是原子操作
+                if (!part.renameTo(dest)) {
+                    part.delete()
+                    throw IllegalStateException("无法写入安装包目录")
+                }
                 return@withContext dest
             } catch (e: Exception) {
                 Log.w(TAG, "从 $url 更新失败：${e.message}")
-                dest.delete()
+                part.delete()
                 failures.add(hostOf(url) + "（" + (e.message ?: "下载失败") + "）")
             }
         }
         throw RuntimeException("更新包下载失败，已尝试：" + failures.joinToString("；"))
+    }
+
+    /** 安装包的持久目录（应用私有，不会被系统当缓存清掉）。 */
+    private fun updatesDir(context: Context): File =
+        File(context.filesDir, "updates").apply { if (!exists()) mkdirs() }
+
+    /**
+     * 该版本是否已经下好且校验通过。
+     *
+     * 命中就返回文件，可直接交给 [install]；文件损坏/不符则删掉并返回 null。
+     * 供两处用：download 的复用判断、界面上「已下载，点此安装」的分支。
+     */
+    fun cachedApk(context: Context, info: UpdateInfo): File? {
+        val f = File(updatesDir(context), "FuMiVoice-${info.versionName}.apk")
+        if (!f.isFile || f.length() <= 0L) return null
+        return runCatching {
+            verifyApk(context, f, info)
+            f
+        }.getOrElse {
+            Log.w(TAG, "已下载的安装包不可用（${it.message}），删除后重下")
+            f.delete()
+            null
+        }
+    }
+
+    /**
+     * 清掉「已经装好」的旧安装包：check 时调用，避免升级完成后那 40MB 一直占着。
+     * 只删版本号等于当前已安装版本的，不碰尚未安装的新包。
+     */
+    private fun pruneInstalled(context: Context) {
+        runCatching {
+            val current = currentVersionName(context)
+            updatesDir(context).listFiles()?.forEach { f ->
+                if (f.isFile && f.name == "FuMiVoice-$current.apk") f.delete()
+            }
+        }
     }
 
     /** 取 version.json 文本；按当前线路设置逐个尝试，全部失败时把原因汇总抛出。 */
