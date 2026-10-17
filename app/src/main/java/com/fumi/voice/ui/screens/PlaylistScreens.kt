@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.ui.components.pageEntrance
 import androidx.compose.ui.unit.sp
 import com.fumi.voice.library.Playlist
 import com.fumi.voice.model.MidiTrack
@@ -60,10 +61,14 @@ import com.fumi.voice.ui.components.EmptyState
 import com.fumi.voice.ui.theme.AccentOrange
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
+import com.fumi.voice.ui.theme.FieldSurface
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
+import com.fumi.voice.ui.components.appPressable
+import com.fumi.voice.ui.components.listEntrance
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatSize
 import androidx.compose.ui.res.stringResource
@@ -88,7 +93,7 @@ fun PlaylistDetailScreen(
     var confirmingDeletePlaylist by remember { mutableStateOf(false) }
     var addingMenu by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize().pageEntrance()) {
 
         // 子页头：返回 + 歌单名 + 操作
         Row(
@@ -134,7 +139,7 @@ fun PlaylistDetailScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = Indigo,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(Radius.Sm))
                     .clickable(onClick = onRename)
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             )
@@ -177,8 +182,8 @@ fun PlaylistDetailScreen(
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onPlayQueue(tracks, 0) }
+                        .clip(RoundedCornerShape(Radius.Md))
+                        .appPressable { onPlayQueue(tracks, 0) }
                         .padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -188,8 +193,8 @@ fun PlaylistDetailScreen(
                 }
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onPlayQueue(tracks.shuffled(), 0) }
+                        .clip(RoundedCornerShape(Radius.Md))
+                        .appPressable { onPlayQueue(tracks.shuffled(), 0) }
                         .padding(vertical = 10.dp, horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -199,8 +204,8 @@ fun PlaylistDetailScreen(
                 }
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable(onClick = onExportM3u)
+                        .clip(RoundedCornerShape(Radius.Md))
+                        .appPressable(onClick = onExportM3u)
                         .padding(vertical = 10.dp, horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -219,6 +224,7 @@ fun PlaylistDetailScreen(
                     val isCurrent = track.path == currentPath
                     Row(
                         modifier = Modifier
+                            .listEntrance(index)
                             .fillMaxWidth()
                             .clickable { onPlayQueue(tracks, index) }
                             .background(if (isCurrent) Indigo.copy(alpha = 0.14f) else Color.Transparent)
@@ -227,7 +233,7 @@ fun PlaylistDetailScreen(
                     ) {
                         Text(
                             "%02d".format(index + 1),
-                            style = TimecodeStyle.copy(fontSize = 12.sp),
+                            style = TimecodeStyle,
                             color = if (isCurrent) Indigo else TextSecondary,
                             modifier = Modifier.width(28.dp),
                             textAlign = TextAlign.Start,
@@ -304,10 +310,10 @@ fun RenamePlaylistDialog(
                 onValueChange = { text = it },
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.pl_name_placeholder), color = TextSecondary) },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(Radius.Md),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF2A2A33),
-                    unfocusedContainerColor = Color(0xFF2A2A33),
+                    focusedContainerColor = FieldSurface,
+                    unfocusedContainerColor = FieldSurface,
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
                     cursorColor = Indigo,
@@ -391,7 +397,7 @@ fun PickLibraryTracksSheet(
                         style = MaterialTheme.typography.labelLarge,
                         color = Indigo,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(Radius.Sm))
                             .clickable {
                                 val paths = visible.map { it.path }.toSet()
                                 chosen = if (allChosen) chosen - paths else chosen + paths
@@ -408,11 +414,11 @@ fun PickLibraryTracksSheet(
                 onValueChange = { keyword = it },
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.pl_search_tracks), color = TextSecondary) },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(Radius.Md),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF2A2A33),
-                    unfocusedContainerColor = Color(0xFF2A2A33),
+                    focusedContainerColor = FieldSurface,
+                    unfocusedContainerColor = FieldSurface,
                     cursorColor = Indigo,
                 ),
             )
@@ -425,7 +431,7 @@ fun PickLibraryTracksSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(Radius.Sm))
                             .clickable {
                                 chosen = if (picked) chosen - track.path else chosen + track.path
                             }
@@ -524,7 +530,7 @@ fun AddToPlaylistDialog(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(Radius.Sm))
                                         .clickable {
                                             chosen.value = if (selected) {
                                                 chosen.value - playlist.id
@@ -563,11 +569,11 @@ fun AddToPlaylistDialog(
                     onValueChange = { newName = it },
                     singleLine = true,
                     placeholder = { Text(stringResource(R.string.pl_new_name_placeholder), color = TextSecondary) },
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(Radius.Md),
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF2A2A33),
-                        unfocusedContainerColor = Color(0xFF2A2A33),
+                        focusedContainerColor = FieldSurface,
+                        unfocusedContainerColor = FieldSurface,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary,
                         cursorColor = Indigo,

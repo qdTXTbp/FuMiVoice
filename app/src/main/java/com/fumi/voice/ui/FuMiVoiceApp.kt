@@ -81,6 +81,7 @@ import com.fumi.voice.player.PlaybackService
 import com.fumi.voice.player.RepeatMode
 import com.fumi.voice.soundfont.SoundFontInfo
 import com.fumi.voice.ui.components.MessageBanner
+import com.fumi.voice.ui.components.pageEntrance
 import com.fumi.voice.ui.screens.ExportSheet
 import com.fumi.voice.ui.screens.LibraryScreen
 import com.fumi.voice.ui.screens.NowPlayingScreen
@@ -558,7 +559,9 @@ fun FuMiVoiceApp(
             onBack = { showSettings = false },
             onCheckUpdate = { checkUpdate(silent = false) },
             updateChecking = updateChecking,
-            modifier = Modifier.fillMaxSize(),
+            // 设置页是整屏覆盖层，同样受「条件渲染没有过渡」的影响，
+            // 进入时给它一次从右推入（返回时主界面会从左侧补位，见下）。
+            modifier = Modifier.fillMaxSize().pageEntrance(),
         )
         // 设置页里也有「检查更新」，弹窗必须在这一层同样渲染，
         // 否则从设置页查到新版本会静默无反应。
@@ -590,7 +593,10 @@ fun FuMiVoiceApp(
         onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Charcoal)) {
+    // 这个主界面整块挂入场动画有两个收益：
+    // 1. 冷启动时内容随系统开屏淡入，而不是「开屏一闪 → 内容硬切」；
+    // 2. 从设置页返回时，它是重新组合的，于是自动获得一次「退回」动画。
+    Column(modifier = Modifier.fillMaxSize().background(Charcoal).pageEntrance(fromRight = false)) {
 
         // 沉浸模式下顶栏一并收掉
         if (!fullscreen) {

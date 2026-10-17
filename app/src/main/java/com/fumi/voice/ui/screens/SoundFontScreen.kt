@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +65,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.ui.components.pageEntrance
 import androidx.compose.ui.unit.sp
 import com.fumi.voice.midi.PreviewMidiFactory
 import com.fumi.voice.player.MidiPlayerManager
@@ -78,6 +80,7 @@ import com.fumi.voice.soundfont.SoundFontSource
 import com.fumi.voice.ui.components.PillTag
 import com.fumi.voice.ui.components.SectionLabel
 import com.fumi.voice.ui.components.SegmentedTabs
+import com.fumi.voice.ui.components.listEntrance
 import com.fumi.voice.ui.theme.AccentGreen
 import com.fumi.voice.ui.theme.AccentOrange
 import com.fumi.voice.ui.theme.AccentRed
@@ -86,8 +89,12 @@ import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
+import com.fumi.voice.ui.theme.Radius
+import com.fumi.voice.ui.theme.Scrim
+import com.fumi.voice.ui.theme.Spacing
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeSmall
 import com.fumi.voice.ui.theme.TimecodeStyle
 import com.fumi.voice.util.formatSize
 import kotlinx.coroutines.Dispatchers
@@ -187,7 +194,7 @@ fun SoundFontScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().pageEntrance()) {
         Column(modifier = Modifier.fillMaxSize()) {
 
             SegmentedTabs(
@@ -259,7 +266,7 @@ fun SoundFontScreen(
             exit = fadeOut(animationSpec = Motion.spec(Motion.Instant)),
         ) {
             Box(
-                modifier = Modifier.fillMaxSize().background(Color(0xCC000000)),
+                modifier = Modifier.fillMaxSize().background(Scrim),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -338,7 +345,7 @@ private fun DownloadRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(Radius.Lg))
             .background(CharcoalCard)
             .padding(14.dp),
     ) {
@@ -376,7 +383,7 @@ private fun DownloadRow(
                         append(source.fileName)
                         append(slowHint)
                     },
-                    style = TimecodeStyle.copy(fontSize = 11.sp),
+                    style = TimecodeSmall,
                     color = if (source.slow) AccentOrange else TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -411,7 +418,7 @@ private fun DownloadRow(
 
                 state != null && state.failed -> OutlinedButton(
                     onClick = onDownload,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(Radius.Md),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                 ) {
                     Icon(Icons.Default.Refresh, null, tint = AccentOrange, modifier = Modifier.size(16.dp))
@@ -421,7 +428,7 @@ private fun DownloadRow(
 
                 else -> OutlinedButton(
                     onClick = onDownload,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(Radius.Md),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                 ) {
                     Icon(Icons.Default.Download, null, tint = Indigo, modifier = Modifier.size(16.dp))
@@ -443,7 +450,7 @@ private fun DownloadRow(
             Spacer(Modifier.height(6.dp))
             Text(
                 "${formatSize(state.bytesRead)} / ${formatSize(state.totalBytes)}",
-                style = TimecodeStyle.copy(fontSize = 11.sp),
+                style = TimecodeSmall,
                 color = TextSecondary,
             )
         }
@@ -477,21 +484,27 @@ private fun SoundFontList(
         ) {
             item { SectionLabel(stringResource(R.string.sf_loaded_title), trailing = stringResource(R.string.sf_count, sounds.size)) }
 
-            items(sounds, key = { it.fileName }) { info ->
+            itemsIndexed(sounds, key = { _, info -> info.fileName }) { index, info ->
                 val active = info.fileName == currentFontName
                 Row(
                     modifier = Modifier
+                        .listEntrance(index)
                         .animateItemPlacement(Motion.itemPlacement())
                         .fillMaxWidth()
                         .clickable { onApply(info) }
                         .background(if (active) Indigo.copy(alpha = 0.14f) else Color.Transparent)
-                        .padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                        .padding(
+                            start = Spacing.Screen,
+                            end = Spacing.Sm,
+                            top = 10.dp,
+                            bottom = 10.dp,
+                        ),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(Radius.Md))
                             .background(if (active) Indigo else Indigo.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -566,7 +579,7 @@ private fun SoundFontList(
             OutlinedButton(
                 onClick = onImportFiles,
                 modifier = Modifier.weight(1f).height(46.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.Lg),
             ) {
                 Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
@@ -575,7 +588,7 @@ private fun SoundFontList(
             OutlinedButton(
                 onClick = onImportFolder,
                 modifier = Modifier.weight(1f).height(46.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(Radius.Lg),
             ) {
                 Icon(Icons.Default.Folder, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
@@ -614,7 +627,7 @@ private fun InstrumentBrowser(
             placeholder = { Text(stringResource(R.string.sf_search_placeholder), color = TextSecondary) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = TextSecondary) },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(Radius.Md),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = CharcoalRaised,
                 unfocusedContainerColor = CharcoalRaised,
@@ -675,7 +688,7 @@ private fun DrumKitCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(Radius.Lg))
             .background(CharcoalCard)
             .padding(14.dp),
     ) {
@@ -685,7 +698,7 @@ private fun DrumKitCard(
                 Spacer(Modifier.height(2.dp))
                 Text(stringResource(R.string.sf_drum_desc), style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             }
-            OutlinedButton(onClick = onPreviewAll, shape = RoundedCornerShape(20.dp)) {
+            OutlinedButton(onClick = onPreviewAll, shape = RoundedCornerShape(Radius.Md)) {
                 Icon(Icons.Default.PlayArrow, null, tint = Indigo, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(stringResource(R.string.sf_preview), style = MaterialTheme.typography.labelLarge)
@@ -706,7 +719,7 @@ private fun DrumKitCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(Radius.Sm))
                             .background(if (active) Indigo else CharcoalRaised)
                             .clickable { onPreviewHit(drum) },
                         contentAlignment = Alignment.Center,
@@ -742,7 +755,7 @@ private fun InstrumentRow(
         // GM 程序号固定三位，等宽显示避免对齐抖动
         Text(
             "%03d".format(instrument.program + 1),
-            style = TimecodeStyle.copy(fontSize = 12.sp),
+            style = TimecodeStyle,
             color = if (playing) Indigo else TextSecondary,
             modifier = Modifier.width(34.dp),
         )

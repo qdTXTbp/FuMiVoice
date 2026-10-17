@@ -25,6 +25,16 @@ val TimecodeStyle = TextStyle(
     letterSpacing = 0.5.sp,
 )
 
+/**
+ * 时间码的三档语义字号。
+ *
+ * 原来各页面靠 `TimecodeStyle.copy(fontSize = 11.sp / 12.sp / 13.sp)` 就地改字号，
+ * 一共 11 处，同一类读数在列表里是 11、在弹层里是 13，来回漂移。
+ * 定成三档后调用点只表达「这是小号读数还是大号读数」。
+ */
+val TimecodeSmall = TimecodeStyle.copy(fontSize = 11.sp, letterSpacing = 0.3.sp)
+val TimecodeLarge = TimecodeStyle.copy(fontSize = 13.sp)
+
 val AppTypography = Typography(
     // 品牌字样（拉丁文）
     displaySmall = TextStyle(

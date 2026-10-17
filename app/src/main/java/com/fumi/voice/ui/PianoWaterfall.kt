@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fumi.voice.midi.MidiParser
 import com.fumi.voice.player.ActiveNote
+import com.fumi.voice.ui.theme.WaterfallBackground
 import kotlin.math.abs
 import kotlin.math.floor
 
@@ -365,7 +366,7 @@ private class Particle(
 )
 
 private fun DrawScope.drawEmptyHint() {
-    drawRect(Color(0xFF141419))
+    drawRect(WaterfallBackground)
 }
 
 private fun DrawScope.drawWaterfall(
@@ -394,7 +395,7 @@ private fun DrawScope.drawWaterfall(
     val whiteWidth = layout.whiteWidth(w)
 
     // ---------- 背景 ----------
-    drawRect(Color(0xFF141419))
+    drawRect(WaterfallBackground)
 
     // ---------- C 音竖线（八度参考线） ----------
     for (key in layout.lowKey..layout.highKey) {

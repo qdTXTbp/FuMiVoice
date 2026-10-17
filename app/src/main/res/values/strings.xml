@@ -35,6 +35,11 @@
     <string name="settings_title">设置</string>
     <string name="settings_open">设置</string>
     <string name="settings_section_language">语言</string>
+    <string name="settings_section_update">更新与下载</string>
+    <string name="settings_source_auto">自动</string>
+    <string name="settings_source_domestic">国内源</string>
+    <string name="settings_source_foreign">境外源</string>
+    <string name="settings_source_hint">国内源走 CNB 直连、境外源走 GitHub 直连；连不上时会自动改用其他线路。</string>
     <string name="settings_section_general">通用</string>
     <string name="settings_section_about">关于</string>
     <string name="settings_check_update">检查更新</string>
@@ -290,6 +295,7 @@
     <string name="lib_deselect">取消选择</string>
     <string name="lib_empty_title">曲库还是空的</string>
     <string name="lib_empty_message">导入 MIDI 文件后就能在这里排队播放，也可以直接打开单个文件</string>
+    <string name="lib_loading">正在读取曲库…</string>
     <string name="action_import_folder">导入文件夹</string>
     <string name="lib_open_single">打开单个</string>
     <string name="lib_selected_count">已选 %1$d 首</string>

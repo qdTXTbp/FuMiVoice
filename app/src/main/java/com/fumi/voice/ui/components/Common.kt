@@ -2,12 +2,16 @@ package com.fumi.voice.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,18 +39,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.R
 import com.fumi.voice.ui.theme.CharcoalCard
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
+import com.fumi.voice.ui.theme.Radius
+import com.fumi.voice.ui.theme.Spacing
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
-import androidx.compose.ui.res.stringResource
-import com.fumi.voice.R
+import kotlinx.coroutines.delay
 
 /** 区块小标题：全大写感的细体，用来分隔列表分组。 */
 @Composable
@@ -97,7 +109,7 @@ fun AppListRow(
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(Radius.Md))
                 .background(
                     if (highlighted) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
@@ -188,7 +200,7 @@ fun AppCard(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(Radius.Lg))
             .background(CharcoalCard),
     ) { content() }
 }
@@ -209,7 +221,7 @@ fun SegmentedTabs(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Radius.Md))
             .background(CharcoalRaised)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -218,8 +230,11 @@ fun SegmentedTabs(
             val active = index == selected
             // 选中态的底色和文字色一起渐变。
             // 只渐变底色的话文字会"闪"过去，两个一起动才像一个整体在切换。
+            //
+            // 底色用主题 primary：原先这里单独写死了一个更亮的蓝（#6C8CFF），
+            // 导致「选中态」在分段控件里是一套蓝、在其余地方是另一套蓝，肉眼可见地不统一。
             val background by animateColorAsState(
-                targetValue = if (active) Color(0xFF6C8CFF) else Color.Transparent,
+                targetValue = if (active) Indigo else Color.Transparent,
                 animationSpec = Motion.spec(Motion.Quick),
                 label = "segmentBackground",
             )
@@ -232,7 +247,7 @@ fun SegmentedTabs(
                 modifier = Modifier
                     .weight(1f)
                     .height(38.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(Radius.Sm))
                     .background(background)
                     .clickable { onSelect(index) },
                 contentAlignment = Alignment.Center,
@@ -256,7 +271,7 @@ fun PillTag(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(Radius.Xs))
             .background(color.copy(alpha = 0.2f))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
@@ -326,6 +341,193 @@ fun MessageBanner(
                     .padding(start = 12.dp)
                     .clickable(onClick = onDismiss),
             )
+        }
+    }
+}
+
+/*
+ * ============================ 交互反馈 ============================
+ */
+
+/**
+ * 会「按下去」的可点区域。
+ *
+ * 全应用的列表行、按钮原本只有 Material 的涟漪，按下去看不出「被按住」；
+ * 唯一的缩放反馈在底部导航栏（FuMiVoiceApp.kt 里那处 scale），属于个案。
+ * 这里把缩放收成公共能力：按下缩到 [pressedScale]，松开弹回。
+ *
+ * 时长取 [Motion.Instant]（120ms）：按压反馈必须比手指的预期更快，
+ * 慢了会觉得界面「软」。返回值是 Modifier，用法 `.appPressable { ... }`。
+ * 注意它接管了 indication，不要再叠加 clickable。
+ */
+@Composable
+fun Modifier.appPressable(
+    enabled: Boolean = true,
+    pressedScale: Float = 0.97f,
+    onClick: () -> Unit,
+): Modifier {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = Motion.spec(Motion.Instant),
+        label = "pressScale",
+    )
+    return this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = LocalIndication.current,
+            enabled = enabled,
+            onClick = onClick,
+        )
+}
+
+/**
+ * 列表项入场：淡入 + 轻微上移，按 [index] 依次错开。
+ *
+ * 原先列表只有「重排」动画（animateItemPlacement），首次加载或切分区时
+ * 整屏内容是一帧内「啪」地出现的。补上入场后，切分区的手感从「换了一屏」
+ * 变成「内容长出来」。
+ *
+ * 两条约束：
+ * 1. 错开封顶 8 档 —— 长列表里第 40 项要等 1 秒才出现会很怪；
+ * 2. 每个 item 只播一次 —— 状态记在 remember 里，滚动复用时不重播。
+ */
+@Composable
+fun Modifier.listEntrance(index: Int = 0, animated: Boolean = true): Modifier {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(animated) {
+        if (animated) delay((index.coerceIn(0, 8) * 22).toLong())
+        appeared = true
+    }
+    val revealed = appeared || !animated
+    val itemAlpha by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0f,
+        animationSpec = Motion.spec(Motion.Standard),
+        label = "entranceAlpha",
+    )
+    val itemOffset by animateFloatAsState(
+        targetValue = if (revealed) 0f else 14f,
+        animationSpec = Motion.spec(Motion.Standard),
+        label = "entranceOffset",
+    )
+    return graphicsLayer {
+        alpha = itemAlpha
+        translationY = itemOffset
+    }
+}
+
+/*
+ * ============================ 页面转场 ============================
+ */
+
+/**
+ * 整块页面的入场：淡入 + 水平位移。
+ *
+ * 为什么需要它：本应用没有 NavHost，子页（歌单详情、艺术家详情、设置）都是
+ * 「条件渲染 + 提前 return」。这类写法的代价是进出**完全没有过渡**——
+ * 返回时上一页会「啪」地跳回来，观感很硬。
+ *
+ * 但正因为是条件渲染，目标页每次进入都是全新建组合，所以只要给页面根节点
+ * 挂一个入场动画，就能同时拿到「进入」和「返回」两个方向的过渡：
+ * 子页用 [fromRight] = true（从右推入），被它盖住的列表页用 false（从左侧微微回位），
+ * 合起来就是一次「推入 / 退回」的页面切换。
+ *
+ * 位移只给 28dp：整屏宽度的滑动会和加载中内容的出现叠在一起，显得拖沓。
+ */
+@Composable
+fun Modifier.pageEntrance(fromRight: Boolean = true, animated: Boolean = true): Modifier {
+    var appeared by remember { mutableStateOf(false) }
+    LaunchedEffect(animated) {
+        if (animated) delay(16L)
+        appeared = true
+    }
+    val revealed = appeared || !animated
+    val pageAlpha by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0f,
+        animationSpec = Motion.spec(Motion.Standard),
+        label = "pageAlpha",
+    )
+    val pageOffset by animateFloatAsState(
+        targetValue = if (revealed) 0f else if (fromRight) 28f else -18f,
+        animationSpec = Motion.spec(Motion.Standard, Motion.EmphasizedEasing),
+        label = "pageOffset",
+    )
+    return graphicsLayer {
+        alpha = pageAlpha
+        translationX = pageOffset
+    }
+}
+
+/*
+ * ============================ 页面状态 ============================
+ */
+
+/**
+ * 统一的加载态。
+ *
+ * 之前「正在加载」各页各写：曲库是居中转圈、云同步只给一行文字、
+ * 音色库列表干脆没有加载态（点进去一片空白，像没反应）。
+ */
+@Composable
+fun LoadingState(
+    modifier: Modifier = Modifier,
+    message: String? = null,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(Spacing.Screen),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 2.5.dp,
+            modifier = Modifier.size(28.dp),
+        )
+        if (!message.isNullOrBlank()) {
+            Spacer(Modifier.height(Spacing.Md))
+            Text(message, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        }
+    }
+}
+
+/**
+ * 统一的错误态：图标 + 说明 + 可选重试。
+ *
+ * 与 [EmptyState] 分开是有意的：空态是「本来就没有东西」，
+ * 错误态是「本该有东西但没拿到」。后者必须给动作，否则用户只能来回切页面试探。
+ */
+@Composable
+fun ErrorState(
+    message: String,
+    modifier: Modifier = Modifier,
+    retry: (@Composable () -> Unit)? = null,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.Xxl, vertical = Spacing.Lg),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            Icons.Outlined.ErrorOutline,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+            modifier = Modifier.size(40.dp),
+        )
+        Spacer(Modifier.height(Spacing.Md))
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            textAlign = TextAlign.Center,
+        )
+        if (retry != null) {
+            Spacer(Modifier.height(Spacing.Lg))
+            retry()
         }
     }
 }

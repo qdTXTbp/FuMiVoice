@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -39,19 +44,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.ui.components.pageEntrance
 import com.fumi.voice.AppInfo
 import com.fumi.voice.R
 import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.CharcoalCard
+import com.fumi.voice.ui.theme.FieldSurface
+import com.fumi.voice.ui.theme.TextOnPrimary
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.update.AppUpdater
+import com.fumi.voice.ui.components.appPressable
+import com.fumi.voice.update.SourceMode
+import com.fumi.voice.update.UpdateSource
 import com.fumi.voice.util.AppLanguage
 import com.fumi.voice.util.findActivity
 
@@ -77,6 +91,8 @@ fun SettingsScreen(
     val language = remember { AppLanguage(context) }
     var selected by remember { mutableStateOf(language.current()) }
     var versionText by remember { mutableStateOf("") }
+    // 下载 / 更新的线路：自动 / 国内源（CNB）/ 境外源（GitHub）
+    var sourceMode by remember { mutableStateOf(UpdateSource.get(context)) }
 
     LaunchedEffect(Unit) {
         val name = AppUpdater.currentVersionName(context)
@@ -106,7 +122,7 @@ fun SettingsScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().background(Charcoal)) {
+    Column(modifier = modifier.fillMaxSize().background(Charcoal).pageEntrance()) {
 
         Row(
             modifier = Modifier
@@ -146,7 +162,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(Radius.Lg))
                     .background(CharcoalCard),
             ) {
                 AppLanguage.options.forEach { (tag, label) ->
@@ -167,12 +183,36 @@ fun SettingsScreen(
                 }
             }
 
+            // ---------------- 更新与下载 ----------------
+            SectionTitle(stringResource(R.string.settings_section_update))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Radius.Lg))
+                    .background(CharcoalCard)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SourceSelector(
+                    selected = sourceMode,
+                    onSelect = {
+                        sourceMode = it
+                        UpdateSource.set(context, it)
+                    },
+                )
+                Text(
+                    stringResource(R.string.settings_source_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                )
+            }
+
             // ---------------- 通用 ----------------
             SectionTitle(stringResource(R.string.settings_section_general))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(Radius.Lg))
                     .background(CharcoalCard),
             ) {
                 Row(
@@ -215,7 +255,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(Radius.Lg))
                     .background(CharcoalCard),
             ) {
                 InfoRow(label = AppInfo.DISPLAY_NAME, value = versionText)
@@ -254,6 +294,67 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary,
             )
+        }
+    }
+}
+
+/**
+ * 三档线路选择（自动 / 国内源 / 境外源）。
+ *
+ * 动效与全应用一致：选中块用颜色过渡 + 轻微弹起（spring），未选中缩到 0.97，
+ * 手指落下时由 appPressable 再压一档 —— 三段式反馈，不抢戏但能感觉到。
+ */
+@Composable
+private fun SourceSelector(selected: SourceMode, onSelect: (SourceMode) -> Unit) {
+    val modes = listOf(
+        SourceMode.AUTO to R.string.settings_source_auto,
+        SourceMode.DOMESTIC to R.string.settings_source_domestic,
+        SourceMode.FOREIGN to R.string.settings_source_foreign,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.Md))
+            .background(FieldSurface)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        modes.forEach { (mode, label) ->
+            val sel = selected == mode
+            val bg by animateColorAsState(
+                targetValue = if (sel) Indigo else Color.Transparent,
+                animationSpec = tween(durationMillis = 180),
+                label = "src-bg",
+            )
+            val fg by animateColorAsState(
+                targetValue = if (sel) TextOnPrimary else TextSecondary,
+                animationSpec = tween(durationMillis = 180),
+                label = "src-fg",
+            )
+            val scale by animateFloatAsState(
+                targetValue = if (sel) 1f else 0.97f,
+                animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+                label = "src-scale",
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(RoundedCornerShape(Radius.Sm))
+                    .background(bg)
+                    .appPressable { onSelect(mode) }
+                    .padding(vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = fg,
+                )
+            }
         }
     }
 }

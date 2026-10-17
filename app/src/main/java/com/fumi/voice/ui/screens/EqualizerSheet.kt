@@ -51,8 +51,10 @@ import com.fumi.voice.audio.Equalizer
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeSmall
 import com.fumi.voice.ui.theme.TimecodeStyle
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
@@ -104,7 +106,7 @@ fun EqualizerSheet(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(Radius.Md))
                         .background(Indigo.copy(alpha = 0.16f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -153,7 +155,7 @@ fun EqualizerSheet(
                                 color = if (selected) Color.White else TextSecondary,
                             )
                         },
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(Radius.Md),
                         colors = FilterChipDefaults.filterChipColors(
                             containerColor = CharcoalRaised,
                             selectedContainerColor = Indigo,
@@ -182,7 +184,7 @@ fun EqualizerSheet(
                     ) {
                         Text(
                             formatGain(gains.getOrElse(index) { 0f }),
-                            style = TimecodeStyle.copy(fontSize = 11.sp),
+                            style = TimecodeSmall,
                             color = if (enabled) TextPrimary else TextSecondary,
                             textAlign = TextAlign.Center,
                         )

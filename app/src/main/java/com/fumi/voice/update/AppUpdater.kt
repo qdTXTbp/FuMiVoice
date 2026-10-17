@@ -39,13 +39,8 @@ object AppUpdater {
     private const val TIMEOUT_MS = 20_000
     private const val BUFFER_SIZE = 64 * 1024
 
-    /** 国内镜像在前、GitHub 直连兜底（与电脑端更新器同一批镜像）。 */
-    private val MIRRORS = listOf(
-        "https://ghfast.top/https://github.com",
-        "https://gh-proxy.com/https://github.com",
-        "https://ghproxy.net/https://github.com",
-        "https://github.com",
-    )
+    // 线路顺序由 UpdateSource 按用户在设置里选的「自动 / 国内源 / 境外源」给出
+    // （CNB 直连、GitHub 加速镜像、GitHub 直连的先后与兜底都在那里统一维护）。
 
     /** 一份版本描述；取自 Release 里的 version.json。 */
     data class UpdateInfo(
@@ -76,7 +71,7 @@ object AppUpdater {
      * @throws RuntimeException 所有镜像都失败（把每个镜像的失败原因一并抛出，便于排查）。
      */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
-        val text = fetchText("$VERSION_ASSET")
+        val text = fetchText(context, "$VERSION_ASSET")
         val json = try {
             JSONObject(text.trim())
         } catch (e: Exception) {
@@ -114,27 +109,26 @@ object AppUpdater {
         val dest = File(dir, "FuMiVoice-${info.versionName}.apk")
         val failures = mutableListOf<String>()
 
-        for (mirror in MIRRORS) {
-            val url = "$mirror/$REPO/releases/latest/download/${info.apkAsset}"
+        for (url in UpdateSource.releaseUrls(context, info.apkAsset)) {
             try {
                 fetchTo(url, dest, onProgress)
                 verifyApk(context, dest, info)
                 return@withContext dest
             } catch (e: Exception) {
-                Log.w(TAG, "从 $mirror 更新失败：${e.message}")
+                Log.w(TAG, "从 $url 更新失败：${e.message}")
                 dest.delete()
-                failures.add(hostOf(mirror) + "（" + (e.message ?: "下载失败") + "）")
+                failures.add(hostOf(url) + "（" + (e.message ?: "下载失败") + "）")
             }
         }
         throw RuntimeException("更新包下载失败，已尝试：" + failures.joinToString("；"))
     }
 
-    /** 取 version.json 文本；逐个镜像试，全部失败时把原因汇总抛出。 */
-    private fun fetchText(asset: String): String {
+    /** 取 version.json 文本；按当前线路设置逐个尝试，全部失败时把原因汇总抛出。 */
+    private fun fetchText(context: Context, asset: String): String {
         val failures = mutableListOf<String>()
-        for (mirror in MIRRORS) {
+        for (url in UpdateSource.releaseUrls(context, asset)) {
             try {
-                val conn = open("$mirror/$REPO/releases/latest/download/$asset")
+                val conn = open(url)
                 try {
                     val code = conn.responseCode
                     if (code !in 200..299) throw IllegalStateException("HTTP $code")
@@ -145,7 +139,7 @@ object AppUpdater {
                     conn.disconnect()
                 }
             } catch (e: Exception) {
-                failures.add(hostOf(mirror) + "（" + (e.message ?: "连接失败") + "）")
+                failures.add(hostOf(url) + "（" + (e.message ?: "连接失败") + "）")
             }
         }
         throw RuntimeException("无法获取版本信息，已尝试：" + failures.joinToString("；"))

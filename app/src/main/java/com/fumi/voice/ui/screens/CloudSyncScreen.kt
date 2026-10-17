@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.ui.components.pageEntrance
 import androidx.compose.ui.viewinterop.AndroidView
 import com.fumi.voice.R
 import com.fumi.voice.cloud.CloudSyncManager
@@ -164,6 +168,7 @@ fun CloudSyncScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .pageEntrance()
             .verticalScroll(rememberScrollState())
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -221,16 +226,25 @@ fun CloudSyncScreen(
             Button(onClick = { askSync() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 Text(if (busy) stringResource(R.string.cloud_syncing) else stringResource(R.string.cloud_sync_now))
             }
-            // 同步进度：阶段文案 + 已用时，避免长时间没有反馈时看起来像卡死
+            // 同步进度：转圈 + 阶段文案 + 已用时。
+            // 原来只有两行静态文字，同步本身可能跑很久，长时间没有任何「在动」的东西
+            // 会让人怀疑已经卡死。转圈样式与导出弹层的进行中一致（细圈 + 主题色）。
             if (busy) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
                     Text(
                         progressText ?: stringResource(R.string.cloud_syncing_progress),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
                     Text(
                         "${elapsed}s",

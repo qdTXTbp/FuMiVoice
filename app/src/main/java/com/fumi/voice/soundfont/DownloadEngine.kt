@@ -1,6 +1,7 @@
 package com.fumi.voice.soundfont
 
 import android.util.Log
+import com.fumi.voice.update.SourceMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -50,10 +51,7 @@ object DownloadEngine {
 
     private const val GITHUB_PREFIX = "https://github.com/"
 
-    /**
-     * 国内镜像前缀，按实测速度排序，最后一条是 GitHub 直连兜底。
-     * 顺序与电脑端 FuFumidi 的更新器保持一致，便于排查。
-     */
+    /** GitHub 加速镜像前缀（前缀式，直接拼完整 GitHub URL），按实测速度排序。 */
     private val MIRRORS = listOf(
         "https://ghfast.top/",
         "https://gh-proxy.com/",
@@ -63,12 +61,18 @@ object DownloadEngine {
     /**
      * 把原始地址展开成「按优先级排序的候选地址列表」。
      *
+     * 顺序跟随设置里的「自动 / 国内源 / 境外源」（见 UpdateSource）：
+     * 国内/自动 = 镜像在前、直连兜底；境外 = 直连在前、镜像兜底。
      * 只有 github.com 的资源才走镜像；jsDelivr 本身就是国内较快的 CDN，
      * 再套一层镜像只会更慢，所以原样返回。
      */
-    fun candidates(url: String): List<String> {
+    fun candidates(url: String, mode: SourceMode = SourceMode.AUTO): List<String> {
         if (!url.startsWith(GITHUB_PREFIX)) return listOf(url)
-        return MIRRORS.map { it + url } + url
+        val mirrored = MIRRORS.map { it + url }
+        return when (mode) {
+            SourceMode.FOREIGN -> listOf(url) + mirrored
+            SourceMode.DOMESTIC, SourceMode.AUTO -> mirrored + url
+        }
     }
 
     /**
@@ -87,10 +91,11 @@ object DownloadEngine {
         url: String,
         dest: File,
         validate: ((File) -> Boolean)? = null,
+        mode: SourceMode = SourceMode.AUTO,
         onProgress: (read: Long, total: Long) -> Unit,
     ) = coroutineScope {
         val failures = mutableListOf<String>()
-        for (candidate in candidates(url)) {
+        for (candidate in candidates(url, mode)) {
             try {
                 fetchOne(candidate, dest, onProgress)
                 if (looksLikeHtml(dest)) throw IllegalStateException("返回的是网页而不是文件")

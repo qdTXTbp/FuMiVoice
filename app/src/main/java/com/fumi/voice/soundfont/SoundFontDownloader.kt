@@ -1,6 +1,7 @@
 package com.fumi.voice.soundfont
 
 import android.content.Context
+import com.fumi.voice.update.UpdateSource
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,6 +80,7 @@ class SoundFontDownloader(
                         source.url,
                         tempFile,
                         validate = manager::looksLikeSoundFont,
+                        mode = UpdateSource.get(context),
                     ) { read, total ->
                         reportProgress(source, read, total)
                     }

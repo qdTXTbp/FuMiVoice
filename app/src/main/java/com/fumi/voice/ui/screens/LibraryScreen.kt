@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -66,7 +65,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.fumi.voice.library.PlayRecord
 import com.fumi.voice.library.Playlist
 import com.fumi.voice.library.LibraryPrefs
@@ -74,15 +72,22 @@ import com.fumi.voice.library.TrackMetadataParser
 import com.fumi.voice.library.TrackSort
 import com.fumi.voice.model.MidiTrack
 import com.fumi.voice.ui.components.EmptyState
+import com.fumi.voice.ui.components.LoadingState
 import com.fumi.voice.ui.components.SegmentedTabs
+import com.fumi.voice.ui.components.appPressable
+import com.fumi.voice.ui.components.listEntrance
+import com.fumi.voice.ui.components.pageEntrance
 import com.fumi.voice.ui.theme.AccentGreen
 import com.fumi.voice.ui.theme.AccentOrange
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
+import com.fumi.voice.ui.theme.FieldSurface
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeSmall
 import com.fumi.voice.ui.theme.TimecodeStyle
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatRelativeTime
@@ -208,7 +213,10 @@ fun LibraryScreen(
                 onDeletePlaylist(openedPlaylist)
                 openedPlaylistId = null
             },
-            modifier = modifier,
+            // 子页是「条件渲染 + 提前 return」，天生没有过渡。
+            // 给根节点挂入场动画，进去时从右推入、返回时这一层重新组合也会淡入，
+            // 合起来就是一次页面切换（详见 pageEntrance 的注释）。
+            modifier = modifier.pageEntrance(),
         )
         // 从曲库多选添加。候选会先排掉歌单已有的曲目，避免「勾了却没加进去」。
         pickingLibraryFor?.let { target ->
@@ -250,7 +258,7 @@ fun LibraryScreen(
             onPlayQueue = onPlayQueue,
             onRequestAddToPlaylist = { trackPendingAdd = it },
             onRequestEdit = { trackPendingEdit = it },
-            modifier = modifier,
+            modifier = modifier.pageEntrance(),
         )
         trackPendingAdd?.let { track ->
             AddToPlaylistDialog(
@@ -280,7 +288,9 @@ fun LibraryScreen(
         return
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    // 从子页返回时，这一层（连同下面整块列表）是重新组合的，
+    // 所以入场动画会再播一次，形成「退回」的观感；方向与子页相反。
+    Column(modifier = modifier.fillMaxSize().pageEntrance(fromRight = false)) {
 
         SearchField(
             value = query,
@@ -556,7 +566,7 @@ private fun SearchField(
             }
         },
         singleLine = true,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(Radius.Md),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = CharcoalRaised,
             unfocusedContainerColor = CharcoalRaised,
@@ -696,7 +706,7 @@ private fun TracksSection(
                         style = MaterialTheme.typography.labelMedium,
                         color = Indigo,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(Radius.Sm))
                             .clickable(onClick = onEnterSelection)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     )
@@ -707,9 +717,11 @@ private fun TracksSection(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
-                loading && tracks.isEmpty() -> CircularProgressIndicator(
-                    color = Indigo,
-                    modifier = Modifier.align(Alignment.Center).size(32.dp),
+                // 首次导入时给统一的加载态：转圈 + 一行说明。
+                // 光转圈会让人以为「卡住了」，写清在干什么就不一样。
+                loading && tracks.isEmpty() -> LoadingState(
+                    message = stringResource(R.string.lib_loading),
+                    modifier = Modifier.align(Alignment.Center),
                 )
 
                 tracks.isEmpty() && searchActive -> NoMatchHint()
@@ -721,12 +733,12 @@ private fun TracksSection(
                     modifier = Modifier.fillMaxSize(),
                     action = {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedButton(onClick = onImportFiles, shape = RoundedCornerShape(20.dp)) {
+                            OutlinedButton(onClick = onImportFiles, shape = RoundedCornerShape(Radius.Md)) {
                                 Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text(stringResource(R.string.action_import_files))
                             }
-                            OutlinedButton(onClick = onOpenFile, shape = RoundedCornerShape(20.dp)) {
+                            OutlinedButton(onClick = onOpenFile, shape = RoundedCornerShape(Radius.Md)) {
                                 Icon(Icons.Default.MusicNote, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text(stringResource(R.string.lib_open_single))
@@ -757,7 +769,12 @@ private fun TracksSection(
                             // 搜索过滤、删除曲目后，剩下的行滑到新位置而不是瞬移。
                             // 有 key 才能对上"是同一行换了位置"，所以 itemsIndexed
                             // 那里的 key 不能省。
-                            modifier = Modifier.animateItemPlacement(Motion.itemPlacement()),
+                            //
+                            // listEntrance 放在前面：先「长出来」，之后的重排才交给
+                            // animateItemPlacement 接管，两者管的是不同阶段。
+                            modifier = Modifier
+                                .listEntrance(index)
+                                .animateItemPlacement(Motion.itemPlacement()),
                         )
                     }
                 }
@@ -786,7 +803,7 @@ private fun TracksSection(
                             style = MaterialTheme.typography.labelLarge,
                             color = Indigo,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(Radius.Sm))
                                 .clickable(onClick = onToggleSelectAll)
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
@@ -795,7 +812,7 @@ private fun TracksSection(
                             style = MaterialTheme.typography.labelLarge,
                             color = TextSecondary,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(Radius.Sm))
                                 .clickable(onClick = onExitSelection)
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
@@ -806,7 +823,7 @@ private fun TracksSection(
                             onClick = onBatchAddToPlaylist,
                             enabled = selectedPaths.isNotEmpty(),
                             modifier = Modifier.weight(1f).height(46.dp),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(Radius.Md),
                         ) {
                             Icon(Icons.Default.PlaylistAdd, null, tint = Indigo, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -816,7 +833,7 @@ private fun TracksSection(
                             onClick = onBatchDelete,
                             enabled = selectedPaths.isNotEmpty(),
                             modifier = Modifier.weight(1f).height(46.dp),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(Radius.Md),
                         ) {
                             Icon(Icons.Default.Delete, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -834,7 +851,7 @@ private fun TracksSection(
                     OutlinedButton(
                         onClick = onImportFiles,
                         modifier = Modifier.weight(1f).height(46.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(Radius.Md),
                     ) {
                         Icon(Icons.Default.UploadFile, null, tint = Indigo, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -843,7 +860,7 @@ private fun TracksSection(
                     OutlinedButton(
                         onClick = onImportFolder,
                         modifier = Modifier.weight(1f).height(46.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(Radius.Md),
                     ) {
                         Icon(Icons.Default.Folder, null, tint = AccentOrange, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -910,7 +927,7 @@ private fun TrackRow(
             // 序号固定两位宽，避免两位数时整行抖动
             Text(
                 "%02d".format(index + 1),
-                style = TimecodeStyle.copy(fontSize = 12.sp),
+                style = TimecodeStyle,
                 color = if (isCurrent) Indigo else TextSecondary,
                 modifier = Modifier.width(28.dp),
                 textAlign = TextAlign.Start,
@@ -1015,9 +1032,10 @@ private fun ArtistsSection(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 16.dp),
             ) {
-                items(groups, key = { it.first }) { (artist, list) ->
+                itemsIndexed(groups, key = { _, group -> group.first }) { index, (artist, list) ->
                     Row(
                         modifier = Modifier
+                            .listEntrance(index)
                             .animateItemPlacement(Motion.itemPlacement())
                             .fillMaxWidth()
                             .clickable { onOpen(artist) }
@@ -1100,8 +1118,10 @@ private fun ArtistDetailScreen(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { onPlayQueue(tracks, 0) }
+                    .clip(RoundedCornerShape(Radius.Md))
+                    // 这两个是自绘的可点区域（不是 Material 按钮），
+                    // 用 appPressable 补上「按下去」的缩放反馈。
+                    .appPressable { onPlayQueue(tracks, 0) }
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1111,8 +1131,8 @@ private fun ArtistDetailScreen(
             }
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { onPlayQueue(tracks.shuffled(), 0) }
+                    .clip(RoundedCornerShape(Radius.Md))
+                    .appPressable { onPlayQueue(tracks.shuffled(), 0) }
                     .padding(vertical = 10.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1138,7 +1158,9 @@ private fun ArtistDetailScreen(
                     onEdit = { onRequestEdit(track) },
                     onExport = null,
                     onDelete = null,
-                    modifier = Modifier.animateItemPlacement(Motion.itemPlacement()),
+                    modifier = Modifier
+                        .listEntrance(index)
+                        .animateItemPlacement(Motion.itemPlacement()),
                 )
             }
         }
@@ -1186,7 +1208,7 @@ private fun RecentSection(
                         style = MaterialTheme.typography.labelMedium,
                         color = AccentOrange,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(Radius.Sm))
                             .clickable(onClick = onClear)
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                     )
@@ -1201,6 +1223,7 @@ private fun RecentSection(
                         val isCurrent = track.path == currentPath
                         Row(
                             modifier = Modifier
+                                .listEntrance(index)
                                 .animateItemPlacement(Motion.itemPlacement())
                                 .fillMaxWidth()
                                 .clickable { onPlayQueue(queue, index) }
@@ -1237,13 +1260,13 @@ private fun RecentSection(
                             }
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(Radius.Sm))
                                     .background(AccentGreen.copy(alpha = 0.18f))
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                             ) {
                                 Text(
                                     "${record.count}x",
-                                    style = TimecodeStyle.copy(fontSize = 11.sp),
+                                    style = TimecodeSmall,
                                     color = AccentGreen,
                                 )
                             }
@@ -1296,7 +1319,7 @@ private fun PlaylistsSection(
                 style = MaterialTheme.typography.labelMedium,
                 color = Indigo,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(Radius.Sm))
                     .clickable(onClick = onImportM3u)
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             )
@@ -1316,10 +1339,10 @@ private fun PlaylistsSection(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     action = {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedButton(onClick = onCreate, shape = RoundedCornerShape(20.dp)) {
+                            OutlinedButton(onClick = onCreate, shape = RoundedCornerShape(Radius.Md)) {
                                 Text(stringResource(R.string.pl_new_playlist))
                             }
-                            OutlinedButton(onClick = onImportM3u, shape = RoundedCornerShape(20.dp)) {
+                            OutlinedButton(onClick = onImportM3u, shape = RoundedCornerShape(Radius.Md)) {
                                 Text(stringResource(R.string.lib_import_m3u))
                             }
                         }
@@ -1333,7 +1356,7 @@ private fun PlaylistsSection(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            items(playlists, key = { it.id }) { playlist ->
+            itemsIndexed(playlists, key = { _, playlist -> playlist.id }) { index, playlist ->
                 val count = resolvePlaylist(playlist).size
                 PlaylistRow(
                     playlist = playlist,
@@ -1341,7 +1364,9 @@ private fun PlaylistsSection(
                     onOpen = { onOpen(playlist) },
                     onRename = { onRename(playlist) },
                     onDelete = { onDelete(playlist) },
-                    modifier = Modifier.animateItemPlacement(Motion.itemPlacement()),
+                    modifier = Modifier
+                        .listEntrance(index)
+                        .animateItemPlacement(Motion.itemPlacement()),
                 )
             }
         }
@@ -1369,7 +1394,7 @@ private fun PlaylistRow(
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(Radius.Md))
                 .background(Indigo.copy(alpha = 0.16f)),
             contentAlignment = Alignment.Center,
         ) {
@@ -1399,7 +1424,7 @@ private fun PlaylistRow(
             style = MaterialTheme.typography.labelMedium,
             color = Indigo,
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(Radius.Sm))
                 .clickable(onClick = onRename)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
         )
@@ -1495,11 +1520,11 @@ private fun DialogTextField(
         onValueChange = onValueChange,
         singleLine = true,
         placeholder = { Text(placeholder, color = TextSecondary) },
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(Radius.Md),
         modifier = Modifier.fillMaxWidth(),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFF2A2A33),
-            unfocusedContainerColor = Color(0xFF2A2A33),
+            focusedContainerColor = FieldSurface,
+            unfocusedContainerColor = FieldSurface,
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,
             cursorColor = Indigo,

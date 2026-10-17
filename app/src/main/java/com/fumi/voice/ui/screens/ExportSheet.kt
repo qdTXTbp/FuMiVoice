@@ -58,6 +58,7 @@ import com.fumi.voice.ui.theme.CharcoalCard
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
@@ -118,7 +119,7 @@ fun ExportSheet(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(Radius.Md))
                         .background(Indigo.copy(alpha = 0.16f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -254,7 +255,7 @@ fun ExportSheet(
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedButton(
                                 onClick = { shareAudio(context, current.result.file) },
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(Radius.Md),
                             ) {
                                 Icon(Icons.Default.Share, null, tint = Indigo, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(6.dp))
@@ -262,7 +263,7 @@ fun ExportSheet(
                             }
                             OutlinedButton(
                                 onClick = { state = ExportUiState.Idle },
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(Radius.Md),
                             ) {
                                 Text(stringResource(R.string.export_again))
                             }
@@ -278,7 +279,7 @@ fun ExportSheet(
                         Spacer(Modifier.height(14.dp))
                         OutlinedButton(
                             onClick = { state = ExportUiState.Idle },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(Radius.Md),
                         ) {
                             Text(stringResource(R.string.export_choose_again))
                         }
@@ -299,7 +300,7 @@ private fun FormatRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 5.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(Radius.Lg))
             .background(CharcoalCard)
             .clickable(enabled = supported, onClick = onClick)
             .padding(14.dp),

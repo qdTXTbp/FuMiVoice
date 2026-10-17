@@ -57,8 +57,10 @@ import com.fumi.voice.ui.theme.AccentOrange
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeSmall
 import com.fumi.voice.ui.theme.TimecodeStyle
 import androidx.compose.ui.res.stringResource
 import com.fumi.voice.R
@@ -104,7 +106,7 @@ fun MixerSheet(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(Radius.Md))
                         .background(Indigo.copy(alpha = 0.16f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -125,7 +127,7 @@ fun MixerSheet(
                     style = MaterialTheme.typography.labelMedium,
                     color = AccentOrange,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(Radius.Sm))
                         .clickable { player.resetChannelMix() }
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 )
@@ -205,7 +207,7 @@ private fun ChannelRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(Radius.Md))
             .background(if (state.muted) Divider.copy(alpha = 0.35f) else Color.Transparent)
             .padding(vertical = 6.dp),
     ) {
@@ -213,13 +215,13 @@ private fun ChannelRow(
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(Radius.Sm))
                     .background(if (state.isDrum) AccentOrange.copy(alpha = 0.18f) else Indigo.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     if (state.isDrum) stringResource(R.string.mixer_drum_short) else "${state.index + 1}",
-                    style = TimecodeStyle.copy(fontSize = 12.sp),
+                    style = TimecodeStyle,
                     color = if (state.isDrum) AccentOrange else Indigo,
                 )
             }
@@ -227,7 +229,7 @@ private fun ChannelRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(Radius.Xs))
                     .clickable(onClick = onPickInstrument)
                     .padding(vertical = 2.dp),
             ) {
@@ -268,7 +270,7 @@ private fun ChannelRow(
             )
             Text(
                 "${state.volume * 100 / 127}%",
-                style = TimecodeStyle.copy(fontSize = 11.sp),
+                style = TimecodeSmall,
                 color = TextSecondary,
                 modifier = Modifier.width(40.dp),
             )
@@ -289,7 +291,7 @@ private fun ChannelRow(
             )
             Text(
                 panLabel(state.pan),
-                style = TimecodeStyle.copy(fontSize = 11.sp),
+                style = TimecodeSmall,
                 color = TextSecondary,
                 modifier = Modifier.width(40.dp),
             )
@@ -302,7 +304,7 @@ private fun ChannelRow(
 private fun ToggleChip(label: String, active: Boolean, color: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(Radius.Xs))
             .background(if (active) color else Divider.copy(alpha = 0.5f))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -367,7 +369,7 @@ private fun InstrumentPickerDialog(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(Radius.Md),
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = CharcoalRaised,
                         unfocusedContainerColor = CharcoalRaised,
@@ -385,7 +387,7 @@ private fun InstrumentPickerDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(Radius.Sm))
                                 .background(if (selected) Indigo.copy(alpha = 0.16f) else Color.Transparent)
                                 .clickable { onPick(instrument.program) }
                                 .padding(horizontal = 10.dp, vertical = 9.dp),
@@ -393,7 +395,7 @@ private fun InstrumentPickerDialog(
                         ) {
                             Text(
                                 "%03d".format(instrument.program + 1),
-                                style = TimecodeStyle.copy(fontSize = 11.sp),
+                                style = TimecodeSmall,
                                 color = if (selected) Indigo else TextSecondary,
                                 modifier = Modifier.width(32.dp),
                             )

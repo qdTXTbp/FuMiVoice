@@ -35,6 +35,11 @@
     <string name="settings_title">Settings</string>
     <string name="settings_open">Settings</string>
     <string name="settings_section_language">Language</string>
+    <string name="settings_section_update">Updates &amp; downloads</string>
+    <string name="settings_source_auto">Auto</string>
+    <string name="settings_source_domestic">Domestic</string>
+    <string name="settings_source_foreign">Global</string>
+    <string name="settings_source_hint">Domestic uses CNB, Global uses GitHub. Falls back to other routes automatically.</string>
     <string name="settings_section_general">General</string>
     <string name="settings_section_about">About</string>
     <string name="settings_check_update">Check for updates</string>
@@ -291,6 +296,7 @@
     <string name="lib_deselect">Deselect</string>
     <string name="lib_empty_title">Your library is empty</string>
     <string name="lib_empty_message">Import MIDI files to queue them here, or open a single file directly</string>
+    <string name="lib_loading">Loading your library…</string>
     <string name="action_import_folder">Import folder</string>
     <string name="lib_open_single">Open one</string>
     <string name="lib_selected_count">%1$d selected</string>

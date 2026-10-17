@@ -70,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.fumi.voice.ui.components.pageEntrance
 import androidx.compose.ui.unit.sp
 import com.fumi.voice.R
 import com.fumi.voice.player.ActiveNote
@@ -83,11 +84,15 @@ import com.fumi.voice.ui.components.EmptyState
 import com.fumi.voice.ui.components.PillTag
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Divider
+import com.fumi.voice.ui.theme.GlassOverlay
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
+import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.TimecodeLarge
 import com.fumi.voice.ui.theme.TimecodeStyle
+import com.fumi.voice.ui.theme.WaterfallBackground
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatTempo
 import kotlin.math.roundToInt
@@ -131,7 +136,7 @@ fun NowPlayingScreen(
 
     // 小窗模式：不给任何控件留位置，整窗只画音符瀑布
     if (isInPip) {
-        Box(modifier = modifier.fillMaxSize().background(Color(0xFF141419))) {
+        Box(modifier = modifier.fillMaxSize().background(WaterfallBackground).pageEntrance(fromRight = false)) {
             if (hasNotes) {
                 PianoWaterfall(
                     notes = player.waterfallNotes,
@@ -155,8 +160,8 @@ fun NowPlayingScreen(
     val waterfallArea: @Composable (Modifier) -> Unit = { stageModifier ->
         Box(
             modifier = stageModifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF141419)),
+                .clip(RoundedCornerShape(Radius.Lg))
+                .background(WaterfallBackground),
         ) {
             // 沉浸 / 横屏两个开关统一放在瀑布之后绘制，原因见下面那段说明。
             // 瀑布区有三种形态：有音符就画瀑布、纯音频文件给占位说明、
@@ -225,7 +230,7 @@ fun NowPlayingScreen(
 
             // 沉浸 / 横屏两个开关必须画在瀑布**之后**。
             //
-            // 瀑布第一件事就是 drawRect(Color(0xFF141419)) 把整块画布铺满，
+            // 瀑布第一件事就是 drawRect(WaterfallBackground) 把整块画布铺满，
             // 而 Compose 按组合顺序绘制；早先把开关写在 AnimatedContent 之前，
             // 结果只要有音符、瀑布一画出来，开关就被整块盖住——
             // 「播放曲目时找不到沉浸按钮」就是这么来的。
@@ -241,7 +246,7 @@ fun NowPlayingScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.35f))
+                            .background(GlassOverlay)
                             .clickable(onClick = onToggleLandscape),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -261,7 +266,7 @@ fun NowPlayingScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.35f))
+                            .background(GlassOverlay)
                             .clickable(onClick = onToggleImmersive),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -720,7 +725,7 @@ private fun AdjustRow(
         content()
         Text(
             value,
-            style = TimecodeStyle.copy(fontSize = 13.sp),
+            style = TimecodeLarge,
             color = TextPrimary,
             modifier = Modifier.width(46.dp),
             textAlign = TextAlign.End,
