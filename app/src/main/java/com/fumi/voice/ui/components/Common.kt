@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -38,7 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -47,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.fumi.voice.R
 import com.fumi.voice.ui.theme.CharcoalCard
+import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
@@ -200,9 +204,28 @@ fun AppCard(
 ) {
     Box(
         modifier = modifier
+            // 抬起面 + 1px 细线：电脑端的卡片从来不是靠阴影，而是靠这圈 10% 白线
             .clip(RoundedCornerShape(Radius.Lg))
-            .background(CharcoalCard),
+            .background(CharcoalCard)
+            .border(1.dp, Divider, RoundedCornerShape(Radius.Lg)),
     ) { content() }
+}
+
+/**
+ * 面板底边的一道发丝线（1 物理像素、10% 白）。
+ *
+ * 电脑端的面板分隔全靠这种细线，不用阴影、也不用改底色 ——
+ * 手机端照抄这一条，顶栏 / 底栏 / 分段区之间才会是「同一张脸」。
+ */
+fun Modifier.bottomHairline(): Modifier = drawWithContent {
+    drawContent()
+    val y = size.height - 0.5f
+    drawLine(
+        color = Divider,
+        start = Offset(0f, y),
+        end = Offset(size.width, y),
+        strokeWidth = 1f,
+    )
 }
 
 /**

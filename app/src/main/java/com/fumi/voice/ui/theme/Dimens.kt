@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
  */
 object Spacing {
 
-    /** 4dp：图标与其紧邻的小字之间。 */
+    /** 4dp：图标与其紧邻的小字（桌面 4/8 网格）。 */
     val Xs = 4.dp
 
     /** 8dp：同一组内的行间距。 */
@@ -28,14 +28,12 @@ object Spacing {
     /** 12dp：行内图文间距、卡片内边距。 */
     val Md = 12.dp
 
-    /** 16dp：卡片之间。 */
+    /** 16dp：卡片之间、页面左右留白（与电脑端页面内边距同值）。 */
     val Lg = 16.dp
+    val Screen = 16.dp
 
-    /** 20dp：页面左右留白（列表行、区块标题统一用它）。 */
-    val Screen = 20.dp
-
-    /** 28dp：大区块之间的呼吸。 */
-    val Xxl = 28.dp
+    /** 24dp：大区块之间的呼吸（桌面 --sp-5）。 */
+    val Xxl = 24.dp
 }
 
 /**
@@ -47,20 +45,16 @@ object Spacing {
  */
 object Radius {
 
-    /** 6dp：小块标签。 */
+    /** 6dp：小块标签、徽标（电脑端 --r-sm）。 */
     val Xs = 6.dp
 
-    /** 8dp：分段控件的内块、输入框。 */
-    val Sm = 8.dp
+    /** 10dp：分段控件内块、输入框、普通按钮（电脑端 --r-md）。 */
+    val Sm = 10.dp
+    val Md = 10.dp
 
-    /** 12dp：列表行图标块、普通按钮。 */
-    val Md = 12.dp
-
-    /** 16dp：卡片。 */
-    val Lg = 16.dp
-
-    /** 20dp：弹层顶部、大圆角容器。 */
-    val Xl = 20.dp
+    /** 14dp：卡片、弹层顶部（电脑端 --r-lg）。 */
+    val Lg = 14.dp
+    val Xl = 14.dp
 }
 
 /** 接入 Material 主题，让 `MaterialTheme.shapes.*` 与上面这套圆角一致。 */

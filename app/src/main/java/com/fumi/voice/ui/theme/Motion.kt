@@ -28,16 +28,16 @@ import androidx.compose.ui.unit.IntOffset
 object Motion {
 
     /** 点按反馈、图标切换这类「按下就要看到回应」的动作。 */
-    const val Instant = 120
+    const val Instant = 140
 
     /** 默认时长：绝大多数状态切换用它。 */
-    const val Quick = 180
+    const val Quick = 220
 
     /** 需要让人看清「从哪来、到哪去」的动作，例如分区切换。 */
-    const val Standard = 280
+    const val Standard = 320
 
     /** 展开 / 收起整块内容。 */
-    const val Emphasized = 380
+    const val Emphasized = 320
 
     /**
      * 标准缓动：起步快、收尾慢。
@@ -45,14 +45,14 @@ object Motion {
      * 对应「手指甩出去之后自然减速停下」的直觉，
      * 用在跟随手指方向上比较贴合。
      */
-    val StandardEasing: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    val StandardEasing: Easing = CubicBezierEasing(0.22f, 0.8f, 0.36f, 1f)
 
     /**
      * 强调缓动：进出都更利落。
      *
      * 用在有明确方向的分区切换上，比标准曲线更「跟得上手」。
      */
-    val EmphasizedEasing: Easing = CubicBezierEasing(0.2f, 0f, 0.1f, 1f)
+    val EmphasizedEasing: Easing = CubicBezierEasing(0.2f, 0.9f, 0.3f, 1.18f)
 
     /**
      * 补间动画。

@@ -35,24 +35,30 @@ val TimecodeStyle = TextStyle(
 val TimecodeSmall = TimecodeStyle.copy(fontSize = 11.sp, letterSpacing = 0.3.sp)
 val TimecodeLarge = TimecodeStyle.copy(fontSize = 13.sp)
 
+/**
+ * 字号阶与电脑端一致：6 档（11 / 12 / 13 / 15 / 20 / 28），
+ * 行高 标题 1.25、正文 1.55；字重正文封顶 600（700 只许标题与大数字）。
+ * 两端用同一套阶，跨端看同一屏内容时字号不会「跳一档」。
+ */
 val AppTypography = Typography(
-    // 品牌字样（拉丁文）
+    // 品牌字样（拉丁文）：电脑端 --fs-2xl 28px
     displaySmall = TextStyle(
         fontFamily = Boogaloo,
-        fontSize = 26.sp,
+        fontSize = 28.sp,
         fontWeight = FontWeight.Normal,
         letterSpacing = 0.5.sp,
     ),
-    // 页面 / 区块标题（中文）
-    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-    // 正文
-    bodyLarge = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Normal),
-    bodyMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal),
-    bodySmall = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+    // 区块标题
+    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold),
+    // 卡片标题
+    titleMedium = TextStyle(fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold),
+    titleSmall = TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    // 正文：15 强调段 / 13 界面正文 / 12 次要说明
+    bodyLarge = TextStyle(fontSize = 15.sp, lineHeight = 23.sp, fontWeight = FontWeight.Normal),
+    bodyMedium = TextStyle(fontSize = 13.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal),
+    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 19.sp, fontWeight = FontWeight.Normal),
     // 标签 / 辅助
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+    labelLarge = TextStyle(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium),
 )

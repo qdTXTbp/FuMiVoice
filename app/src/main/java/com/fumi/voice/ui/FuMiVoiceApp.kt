@@ -81,6 +81,7 @@ import com.fumi.voice.player.PlaybackService
 import com.fumi.voice.player.RepeatMode
 import com.fumi.voice.soundfont.SoundFontInfo
 import com.fumi.voice.ui.components.MessageBanner
+import com.fumi.voice.ui.components.bottomHairline
 import com.fumi.voice.ui.components.pageEntrance
 import com.fumi.voice.ui.screens.ExportSheet
 import com.fumi.voice.ui.screens.LibraryScreen
@@ -89,10 +90,12 @@ import com.fumi.voice.ui.screens.SoundFontScreen
 import com.fumi.voice.ui.screens.CloudSyncScreen
 import com.fumi.voice.ui.screens.SettingsScreen
 import com.fumi.voice.ui.theme.Charcoal
+import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
+import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.util.DocumentTreeScanner
 import com.fumi.voice.util.findActivity
@@ -817,6 +820,8 @@ fun FuMiVoiceApp(
         // 沉浸模式下连底部导航一起收掉：只留瀑布才叫全屏，
         // 还留着一排导航栏的"沉浸"其实只是"把状态栏藏起来"。
         if (!fullscreen) {
+            // 与顶栏同一道发丝线：面板之间的分隔只靠线，不靠阴影（电脑端的做法）
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
             NavigationBar(containerColor = CharcoalRaised) {
                 Tab.entries.forEachIndexed { index, item ->
                     val selected = tab == index
@@ -838,10 +843,12 @@ fun FuMiVoiceApp(
                             )
                         },
                         label = { Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelMedium) },
+                        // 选中态照电脑端侧边栏：品牌色底只铺 14% 透明、文字图标吃品牌色本身
+                        // （实心色块在深靛面板上太重，也不像同一个设计语言）
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = Color.White,
-                            indicatorColor = Indigo,
+                            selectedIconColor = Indigo,
+                            selectedTextColor = Indigo,
+                            indicatorColor = Indigo.copy(alpha = 0.14f),
                             unselectedIconColor = TextSecondary,
                             unselectedTextColor = TextSecondary,
                         ),
@@ -907,7 +914,14 @@ private fun AppHeader(
 ) {
     val current = Tab.entries[tab]
 
-    Column(modifier = Modifier.fillMaxWidth().background(Indigo)) {
+    // 顶栏是「面板」而不是品牌色实心条：电脑端整个外壳都是深靛面板 + 10% 白细线，
+    // 品牌色只出现在选中态与按钮上 —— 两端放在一起才是同一个产品。
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CharcoalRaised)
+            .bottomHairline(),
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -933,13 +947,13 @@ private fun AppHeader(
                     Text(
                         stringResource(item.labelRes),
                         style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
+                        color = TextPrimary,
                         maxLines = 1,
                     )
                     Text(
                         headerSubtitle(item, playerState, trackCount),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextOnPrimarySoft,
+                        color = TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -954,7 +968,7 @@ private fun AppHeader(
                 exit = fadeOut(animationSpec = Motion.spec(Motion.Instant)),
             ) {
                 IconButton(onClick = onHeaderAction) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.action_open_midi), tint = Color.White)
+                    Icon(Icons.Default.FolderOpen, contentDescription = stringResource(R.string.action_open_midi), tint = TextPrimary)
                 }
             }
 
