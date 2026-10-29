@@ -26,12 +26,12 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
   - 壁纸：**极光 / 星空 / 深海 / 星云 / 渐变网格 / 暮色**六张，外加「无（纯色）」
   - 全部由 Canvas 代码绘制，不打包任何位图；可调背景压暗，可选低帧率漂移
   - 选择立即生效、自动保存（SharedPreferences），重启后保留；默认玻璃 + 极光
-  - 图标：由 FuFumidi logo 的图形与配色重绘的抽象版，自适应/圆形/主题单色
+  - 图标：直接使用 FuFumidi 当前立绘（mascot.png），生成传统/圆形/自适应/主题单色图标
 - **桌面小组件**：锁屏 / 桌面播放控制与瀑布小部件
 - **现代化 UI**：Jetpack Compose + Material 3，全应用动效与手势切换
 - **多语言**：应用内可切换中文 / 英文，全部页面文案成对翻译
 - **横屏与沉浸**：横屏时瀑布独占左侧、控制栏收进右侧独立滚动；沉浸模式整屏只留瀑布
-- **在线音色库**：可下载 GeneralUser GS / FluidR3 GM / SGM-V2.01 等，
+- **在线音色库**：可下载 GeneralUser GS / FluidR3 GM / SGM-V2.01 / **Allvoice（517 预设 / 480MB）** 等，
   自动走国内镜像并分段并发下载，分卷资源自动合并
 - **设置页**：外观、语言切换、检查更新、开发者信息与下载地址
 - **文件关联**：支持从文件管理器直接打开 MIDI 文件
@@ -145,7 +145,7 @@ FuMiVoice/
 
 ## 图标
 
-启动器图标由电脑端 `FuFumidi-Source/frontend/src/assets/logo.png` 生成：
+启动器图标由电脑端 `FuFumidi-Source/frontend/src/assets/mascot.png`（当前立绘）生成：
 
 - `mipmap-*` 下的 `ic_launcher.png` / `ic_launcher_round.png`：Android 7.x 用的传统图标；
 - `mipmap-anydpi-v26/` 下的自适应图标：背景为深靛径向渐变（`drawable/ic_launcher_background.xml`），
