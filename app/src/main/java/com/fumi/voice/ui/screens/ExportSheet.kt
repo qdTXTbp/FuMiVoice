@@ -64,6 +64,8 @@ import com.fumi.voice.ui.theme.TextSecondary
 import com.fumi.voice.ui.theme.TimecodeStyle
 import com.fumi.voice.util.formatDuration
 import com.fumi.voice.util.formatSize
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
@@ -97,6 +99,7 @@ fun ExportSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var state by remember(track.path) { mutableStateOf<ExportUiState>(ExportUiState.Idle) }
+    var exportJob by remember(track.path) { mutableStateOf<Job?>(null) }
 
     // 进度来自 IO 线程，用 StateFlow 传递，不去跨线程写 Compose 状态
     val progressFlow = remember(track.path) { MutableStateFlow(0L to 0L) }
@@ -150,12 +153,14 @@ fun ExportSheet(
                             onClick = {
                                 progressFlow.value = 0L to track.durationMs
                                 state = ExportUiState.Running(format)
-                                scope.launch {
-                                    val result = runCatching {
+                                exportJob = scope.launch {
+                                    var outFile: File? = null
+                                    try {
                                         val dir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
                                             ?: context.filesDir
                                         val out = uniqueFile(dir, sanitize(track.title), format.extension)
-                                        AudioExporter.export(
+                                        outFile = out
+                                        val result = AudioExporter.export(
                                             source = track,
                                             soundFontPath = soundFontPath,
                                             format = format,
@@ -163,11 +168,14 @@ fun ExportSheet(
                                         ) { processed, total ->
                                             progressFlow.value = processed to total
                                         }
+                                        state = ExportUiState.Done(result)
+                                    } catch (e: CancellationException) {
+                                        runCatching { outFile?.delete() }
+                                        state = ExportUiState.Idle
+                                        throw e
+                                    } catch (e: Exception) {
+                                        state = ExportUiState.Failed(e.message ?: context.getString(R.string.export_failed))
                                     }
-                                    state = result.fold(
-                                        onSuccess = { ExportUiState.Done(it) },
-                                        onFailure = { ExportUiState.Failed(it.message ?: context.getString(R.string.export_failed)) },
-                                    )
                                 }
                             },
                         )
@@ -212,6 +220,11 @@ fun ExportSheet(
                             style = TimecodeStyle,
                             color = TextSecondary,
                         )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { exportJob?.cancel(); exportJob = null },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text(stringResource(R.string.export_cancel)) }
                     }
                 }
 
