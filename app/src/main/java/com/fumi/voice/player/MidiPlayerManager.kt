@@ -1,7 +1,11 @@
 package com.fumi.voice.player
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import com.fumi.voice.audio.Equalizer
 import com.fumi.voice.midi.MidiParser
@@ -165,6 +169,12 @@ class MidiPlayerManager(val context: Context) {
     private var loadGeneration = 0
     /** MIDI 解析专用后台线程，避免在 Compose 点击回调里解析整首曲目。 */
     private val parseScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // ---- 音频焦点：来电/别的播放器起播时暂停，回到前台再续播 ----
+    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var focusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus = false
+    private var resumeOnFocusGain = false
 
     /** 节拍器的两个 click 流：重音 / 非重音。 */
     private var clickAccentHandle = 0
@@ -816,9 +826,80 @@ class MidiPlayerManager(val context: Context) {
         return true
     }
 
+    // ---------------- 音频焦点 ----------------
+
+    private fun onAudioFocusChange(change: Int) {
+        when (change) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                resumeOnFocusGain = false
+                hasAudioFocus = false
+                if (playState == PlayState.PLAYING) pauseForFocusLoss()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                resumeOnFocusGain = playState == PlayState.PLAYING
+                if (playState == PlayState.PLAYING) pauseForFocusLoss()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (resumeOnFocusGain) {
+                    resumeOnFocusGain = false
+                    play()
+                }
+            }
+        }
+    }
+
+    /** 被其它 App 抢走焦点时暂停，但不放弃焦点请求（GAIN 后要续播）。 */
+    private fun pauseForFocusLoss() {
+        if (streamHandle == 0) return
+        BASS.BASS_ChannelPause(streamHandle)
+        playState = PlayState.PAUSED
+        stopPositionUpdater()
+        stopMetronome()
+        silenceClicks()
+        notifyState()
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        hasAudioFocus = if (Build.VERSION.SDK_INT >= 26) {
+            val req = focusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+                .setWillPauseWhenDucked(false)
+                .setOnAudioFocusChangeListener { change -> onAudioFocusChange(change) }
+                .build()
+                .also { focusRequest = it }
+            audioManager.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                { change -> onAudioFocusChange(change) },
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+        return hasAudioFocus
+    }
+
+    private fun abandonAudioFocus() {
+        if (!hasAudioFocus && focusRequest == null) return
+        if (Build.VERSION.SDK_INT >= 26) {
+            focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus { change -> onAudioFocusChange(change) }
+        }
+        hasAudioFocus = false
+        resumeOnFocusGain = false
+    }
+
     // ---------------- 传输控制 ----------------
 
     fun play() {
+        if (!requestAudioFocus()) return
         if (streamHandle == 0) {
             // 流已释放但仍有曲目：重新装载后再播放
             val track = currentTrack ?: return
@@ -833,6 +914,7 @@ class MidiPlayerManager(val context: Context) {
     }
 
     fun pause() {
+        abandonAudioFocus()
         if (streamHandle == 0) return
         BASS.BASS_ChannelPause(streamHandle)
         playState = PlayState.PAUSED
@@ -852,6 +934,7 @@ class MidiPlayerManager(val context: Context) {
 
     /** 停止播放并释放音频流，保留当前曲目信息。 */
     fun stop() {
+        abandonAudioFocus()
         releaseStream()
         clearActiveNotes()
         playState = PlayState.STOPPED
@@ -1217,6 +1300,7 @@ class MidiPlayerManager(val context: Context) {
     // ---------------- 释放 ----------------
 
     fun release() {
+        abandonAudioFocus()
         stop()
         // 节拍器的两个流要显式释放：它们不挂在曲目流上，
         // BASS_Free 之后这两个句柄就悬空了
