@@ -35,7 +35,6 @@ class PlaybackService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "fumi_playback"
-        private const val CHANNEL_NAME = "播放控制"
         private const val NOTIFICATION_ID = 1001
 
         private const val ACTION_PLAY_PAUSE = "com.fumi.voice.action.PLAY_PAUSE"
@@ -161,7 +160,7 @@ class PlaybackService : Service() {
         val track = state.track
         session.setMetadata(
             android.media.MediaMetadata.Builder()
-                .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, track?.title ?: "未在播放")
+                .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, track?.title ?: getString(R.string.notification_not_playing))
                 .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, state.soundFontName ?: "FuMiVoice")
                 .putLong(android.media.MediaMetadata.METADATA_KEY_DURATION, state.durationMs)
                 .build()
@@ -174,8 +173,8 @@ class PlaybackService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "显示当前 MIDI 曲目与播放控制"
+                NotificationChannel(CHANNEL_ID, getString(R.string.notification_channel_name), NotificationManager.IMPORTANCE_LOW).apply {
+                    description = getString(R.string.notification_channel_desc)
                     setShowBadge(false)
                     enableVibration(false)
                 }

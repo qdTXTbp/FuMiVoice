@@ -358,4 +358,7 @@
     <string name="appearance_saved_hint">Changes apply instantly and save automatically. You can return to a solid colour at any time.</string>
     <string name="appearance_preview_card_title">Panel preview</string>
     <string name="appearance_preview_card_sub">Deep-indigo stage · native, glass, acrylic, mica, frosted, velvet</string>
+    <string name="notification_channel_name">Playback</string>
+    <string name="notification_channel_desc">Show the current MIDI track and playback controls</string>
+    <string name="notification_not_playing">Nothing playing</string>
 </resources>

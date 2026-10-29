@@ -358,4 +358,7 @@
     <string name="appearance_saved_hint">选择立即生效并自动保存，随时可以改回纯色。</string>
     <string name="appearance_preview_card_title">面板预览</string>
     <string name="appearance_preview_card_sub">深靛舞台 · 原生 / 玻璃 / 亚克力 / 云母 / 磨砂 / 天鹅绒</string>
+    <string name="notification_channel_name">播放控制</string>
+    <string name="notification_channel_desc">显示当前 MIDI 曲目与播放控制</string>
+    <string name="notification_not_playing">未在播放</string>
 </resources>
