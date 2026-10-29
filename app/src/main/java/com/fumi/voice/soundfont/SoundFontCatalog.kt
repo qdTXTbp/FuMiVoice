@@ -101,12 +101,12 @@ object SoundFontCatalog {
         SoundFontSource(
             id = "allvoice",
             fileName = "allvoice.sf2",
-            displayName = "Allvoice（最全）",
+            displayName = "Allvoice",
             description = "517 预设 / 480MB，管弦与 GM/XG 最全",
             category = "旗舰音色库",
             url = "https://github.com/qdTXTbp/FuFumidi/releases/download/soundfonts-v1/allvoice.sf2",
             approxBytes = 503_881_454,
-            license = "ToH 派生 · 已获作者书面授权，可再分发",
+            license = "已获作者授权",
         ),
         SoundFontSource(
             id = "fluidr3_gm",

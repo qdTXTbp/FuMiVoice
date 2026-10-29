@@ -409,6 +409,8 @@ private fun DrawScope.drawWaterfall(
     val whiteWidth = layout.whiteWidth(w)
 
     // ---------- 背景：深靛舞台 + 顶部冷光 + 底部压暗 ----------
+    // 先铺一层完全不透明的底，避免壁纸的竖向色带透进瀑布画布
+    drawRect(Color(0xFF04060C))
     drawRect(
         Brush.verticalGradient(
             colors = listOf(Color(0xFF0A1022), Color(0xFF070A13), Color(0xFF04060C)),
