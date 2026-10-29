@@ -10,19 +10,27 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.fumi.voice.player.PlayState
 import com.fumi.voice.ui.FuMiVoiceApp
+import com.fumi.voice.ui.theme.AppearanceHub
 import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.FuMiVoiceTheme
+import com.fumi.voice.ui.theme.LocalAppearance
+import com.fumi.voice.ui.wallpaper.AppWallpaperBackdrop
 import com.fumi.voice.util.AppLanguage
 import kotlinx.coroutines.launch
 
@@ -39,7 +47,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // 应用是**固定深色**的：不跟随系统深浅色，所以系统栏图标必须显式要求浅色。
+        // enableEdgeToEdge() 的默认样式按系统 uiMode 判断，浅色模式下会给深色图标，
+        // 压在深靛顶栏上等于看不见。
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         askNotificationPermission()
 
         // 语言偏好必须在 setContent 之前落到 Resources 上，
@@ -56,15 +70,27 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // 外观偏好要在 setContent 之前读出来，否则首帧会先按默认值画一次、再跳成用户选的那套
+        AppearanceHub.ensureLoaded(this)
+
         setContent {
+            // 外观是进程级状态（AppearanceHub），这里订阅一次，
+            // 设置页改完立即广播到整棵树，不需要重建 Activity
+            val appearance by AppearanceHub.state.collectAsState()
             FuMiVoiceTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = Charcoal) {
-                    FuMiVoiceApp(
-                        app = app,
-                        initialMidiUri = midiUri.value,
-                        isInPip = inPip.value,
-                        onEnterPip = { enterWaterfallPip() },
-                    )
+                CompositionLocalProvider(LocalAppearance provides appearance) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = Charcoal) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // 壁纸 + 舞台 + 压暗：铺在所有页面之下（含设置页、画中画之外的所有标签页）
+                            AppWallpaperBackdrop()
+                            FuMiVoiceApp(
+                                app = app,
+                                initialMidiUri = midiUri.value,
+                                isInPip = inPip.value,
+                                onEnterPip = { enterWaterfallPip() },
+                            )
+                        }
+                    }
                 }
             }
         }

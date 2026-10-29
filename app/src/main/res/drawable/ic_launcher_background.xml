@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标的背景层：深靛径向渐变（中心偏上，像舞台顶光）。
+  取值与 ui/theme/Theme.kt 的 Charcoal / Indigo 同族，也与电脑端图标的底色一致。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="radial"
+        android:centerX="0.5"
+        android:centerY="0.42"
+        android:gradientRadius="72%"
+        android:startColor="#FF18233F"
+        android:endColor="#FF04070F" />
+</shape>

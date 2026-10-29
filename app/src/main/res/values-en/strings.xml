@@ -17,6 +17,7 @@
     <string name="tab_cloud">Cloud</string>
 
     <!-- Common actions -->
+    <string name="action_settings">Settings</string>
     <string name="action_back">Back</string>
     <string name="action_check">Check</string>
     <string name="state_checking">Checking…</string>
@@ -322,4 +323,39 @@
     <string name="lib_note_count_suffix"> · %1$d notes</string>
     <string name="lib_play_count_suffix"> · played %1$d×</string>
     <string name="lib_played_times">Played %1$d times</string>
+
+    <!-- Appearance: materials and wallpapers (mirrors the desktop AppearancePanel) -->
+    <string name="material_solid">Native</string>
+    <string name="material_solid_desc">Plain solid surface; easiest on power</string>
+    <string name="material_glass">Glass</string>
+    <string name="material_glass_desc">Bright hairline and sheen; wallpaper shows through</string>
+    <string name="material_acrylic">Acrylic</string>
+    <string name="material_acrylic_desc">Frosted grain, translucent and tactile</string>
+    <string name="material_mica">Mica</string>
+    <string name="material_mica_desc">Low contrast hairline; easiest on the eyes</string>
+    <string name="material_frosted">Frosted</string>
+    <string name="material_frosted_desc">Low-saturation haze for long sessions</string>
+    <string name="material_velvet">Velvet</string>
+    <string name="material_velvet_desc">Matte and deep; absorbs light instead of reflecting it</string>
+    <string name="wallpaper_none">None (solid)</string>
+    <string name="wallpaper_aurora">Aurora</string>
+    <string name="wallpaper_starfield">Starfield</string>
+    <string name="wallpaper_deep_sea">Deep sea</string>
+    <string name="wallpaper_nebula">Nebula</string>
+    <string name="wallpaper_grid">Gradient grid</string>
+    <string name="wallpaper_dusk">Dusk</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_appearance">Material and wallpaper</string>
+    <string name="settings_appearance_summary">%1$s · %2$s</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_section_material">Material</string>
+    <string name="appearance_section_wallpaper">Wallpaper</string>
+    <string name="appearance_section_backdrop">Backdrop</string>
+    <string name="appearance_dim">Backdrop dim</string>
+    <string name="appearance_percent">%1$d%%</string>
+    <string name="appearance_motion">Slow wallpaper drift</string>
+    <string name="appearance_motion_hint">Drifts at 20 fps; off saves power</string>
+    <string name="appearance_saved_hint">Changes apply instantly and save automatically. You can return to a solid colour at any time.</string>
+    <string name="appearance_preview_card_title">Panel preview</string>
+    <string name="appearance_preview_card_sub">Deep-indigo stage · native, glass, acrylic, mica, frosted, velvet</string>
 </resources>

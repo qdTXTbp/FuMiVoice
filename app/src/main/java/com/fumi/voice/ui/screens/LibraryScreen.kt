@@ -4,6 +4,8 @@
 
 package com.fumi.voice.ui.screens
 
+import androidx.activity.compose.BackHandler
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -168,6 +170,11 @@ fun LibraryScreen(
     }
 
     val openedPlaylist = playlists.firstOrNull { it.id == openedPlaylistId }
+
+    // 返回键：先回歌单/艺术家详情，再由系统处理退出。
+    BackHandler(enabled = openedPlaylist != null || openedArtist != null) {
+        if (openedArtist != null) openedArtist = null else openedPlaylistId = null
+    }
 
     // ---- 搜索过滤 ----
     val keyword = query.trim()

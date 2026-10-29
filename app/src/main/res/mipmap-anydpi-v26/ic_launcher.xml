@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  自适应图标（API 26+）。
+  前景是 108dp 画布上的一张 PNG：角色居中、主体控制在 66/108 安全区内，
+  启动器按圆形 / 方形 / 水滴形裁剪时都不会切到帽子与头发。
+  背景用渐变 shape 而不是纯色 —— 电脑端的图标底下就是一层深靛径向光，
+  纯色会让两端的图标看起来不是同一个产品。
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>

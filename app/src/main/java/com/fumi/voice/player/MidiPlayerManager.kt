@@ -15,6 +15,8 @@ import com.un4seen.bass.BASS_FX
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -158,6 +160,11 @@ class MidiPlayerManager(val context: Context) {
 
     /** 每一拍的毫秒位置（源时间轴），由 MIDI 的速度表推出；音频/模块为空。 */
     private var beatTimesMs: List<Long> = emptyList()
+
+    /** 每次装载自增；后台解析完成时用它丢弃过期请求。 */
+    private var loadGeneration = 0
+    /** MIDI 解析专用后台线程，避免在 Compose 点击回调里解析整首曲目。 */
+    private val parseScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** 节拍器的两个 click 流：重音 / 非重音。 */
     private var clickAccentHandle = 0
@@ -658,6 +665,8 @@ class MidiPlayerManager(val context: Context) {
     private fun loadPath(path: String): Boolean {
         releaseStream()
         previewing = false
+        loadGeneration++
+        val generation = loadGeneration
 
         val kind = kindOf(path)
         streamHandle = when (kind) {
@@ -697,29 +706,48 @@ class MidiPlayerManager(val context: Context) {
         durationMs = readDurationMs()
 
         if (kind == StreamKind.MIDI) {
-            var parsed: MidiParser.ParsedMidi? = null
-            waterfallNotes = runCatching {
-                val p = MidiParser.parse(File(path).inputStream())
-                parsed = p
-                waterfallTempoMarks = p.tempoMarks
-                waterfallBeatsPerBar = p.beatsPerBar
-                p.notes.map { n ->
-                    NoteData(
-                        startTimeMs = MidiParser.tickToMs(n.tick, p.tempoChanges, p.ticksPerQuarter).toDouble(),
-                        durationMs = MidiParser.tickToMs(n.durationTicks, p.tempoChanges, p.ticksPerQuarter).toDouble(),
-                        key = n.key,
-                        channel = n.channel,
-                        velocity = n.velocity,
-                    )
+            // 先给空的结果，让 BASS 立即出声；解析放到 Default 线程，
+            // 几千/上万音符的曲目不会卡住 Compose 的点击回调。
+            waterfallTempoMarks = emptyList()
+            waterfallBeatsPerBar = 4
+            waterfallNotes = emptyList()
+            initChannels(null)
+            beatTimesMs = emptyList()
+            parseScope.launch {
+                val result = runCatching {
+                    val p = MidiParser.parse(File(path).inputStream())
+                    val notes = p.notes.map { n ->
+                        NoteData(
+                            startTimeMs = MidiParser.tickToMs(n.tick, p.tempoChanges, p.ticksPerQuarter).toDouble(),
+                            durationMs = MidiParser.tickToMs(n.durationTicks, p.tempoChanges, p.ticksPerQuarter).toDouble(),
+                            key = n.key,
+                            channel = n.channel,
+                            velocity = n.velocity,
+                        )
+                    }
+                    Triple(p, notes, buildBeatGrid(p, durationMs))
                 }
-            }.getOrElse {
-                Log.e(TAG, "解析瀑布音符失败", it)
-                waterfallTempoMarks = emptyList()
-                waterfallBeatsPerBar = 4
-                emptyList()
+                withContext(Dispatchers.Main) {
+                    if (generation != loadGeneration || streamHandle == 0) return@withContext
+                    result.onSuccess { (p, notes, grid) ->
+                        waterfallTempoMarks = p.tempoMarks
+                        waterfallBeatsPerBar = p.beatsPerBar
+                        waterfallNotes = notes
+                        initChannels(p)
+                        beatTimesMs = grid
+                        restartMetronome()
+                        notifyState()
+                        Log.i(TAG, "瀑布解析完成: $path, 音符=${notes.size}")
+                    }.onFailure {
+                        Log.e(TAG, "解析瀑布音符失败", it)
+                        waterfallTempoMarks = emptyList()
+                        waterfallBeatsPerBar = 4
+                        waterfallNotes = emptyList()
+                        beatTimesMs = emptyList()
+                        notifyState()
+                    }
+                }
             }
-            initChannels(parsed)
-            beatTimesMs = buildBeatGrid(parsed, durationMs)
         } else {
             // 音频文件没有音符可解析，直接给空，别把几 MB 的音频丢进 SMF 解析器
             waterfallTempoMarks = emptyList()

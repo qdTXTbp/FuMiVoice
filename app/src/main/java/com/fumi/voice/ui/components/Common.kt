@@ -49,7 +49,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.fumi.voice.R
-import com.fumi.voice.ui.theme.CharcoalCard
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
@@ -59,6 +58,7 @@ import com.fumi.voice.ui.theme.Spacing
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.appSurface
 import kotlinx.coroutines.delay
 
 /** 区块小标题：全大写感的细体，用来分隔列表分组。 */
@@ -203,11 +203,10 @@ fun AppCard(
     content: @Composable () -> Unit,
 ) {
     Box(
-        modifier = modifier
-            // 抬起面 + 1px 细线：电脑端的卡片从来不是靠阴影，而是靠这圈 10% 白线
-            .clip(RoundedCornerShape(Radius.Lg))
-            .background(CharcoalCard)
-            .border(1.dp, Divider, RoundedCornerShape(Radius.Lg)),
+        // 抬起面 + 1px 细线：电脑端的卡片从来不是靠阴影，而是靠这圈 10% 白线。
+        // 底色与线宽改由外观材质决定（玻璃 / 亚克力 / 云母 / 天鹅绒），
+        // 这样设置页里换材质时，播放页、曲库、弹层里的卡片会一起变。
+        modifier = modifier.appSurface(),
     ) { content() }
 }
 

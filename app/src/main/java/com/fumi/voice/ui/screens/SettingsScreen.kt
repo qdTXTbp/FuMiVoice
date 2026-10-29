@@ -27,7 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,15 +55,15 @@ import androidx.compose.ui.unit.dp
 import com.fumi.voice.ui.components.pageEntrance
 import com.fumi.voice.AppInfo
 import com.fumi.voice.R
-import com.fumi.voice.ui.theme.Charcoal
-import com.fumi.voice.ui.theme.CharcoalCard
 import com.fumi.voice.ui.theme.FieldSurface
 import com.fumi.voice.ui.theme.TextOnPrimary
 import com.fumi.voice.ui.theme.Divider
 import com.fumi.voice.ui.theme.Indigo
+import com.fumi.voice.ui.theme.LocalAppearance
 import com.fumi.voice.ui.theme.Radius
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.appSurface
 import com.fumi.voice.update.AppUpdater
 import com.fumi.voice.ui.components.appPressable
 import com.fumi.voice.update.SourceMode
@@ -94,6 +96,15 @@ fun SettingsScreen(
     // 下载 / 更新的线路：自动 / 国内源（CNB）/ 境外源（GitHub）
     var sourceMode by remember { mutableStateOf(UpdateSource.get(context)) }
 
+    // 外观：整屏二级页，进入后接管设置页（与电脑端 AppearancePanel 的抽屉是同一层语义）
+    var showAppearance by remember { mutableStateOf(false) }
+    val appearance = LocalAppearance.current
+
+    if (showAppearance) {
+        AppearanceScreen(onBack = { showAppearance = false })
+        return
+    }
+
     LaunchedEffect(Unit) {
         val name = AppUpdater.currentVersionName(context)
         val code = AppUpdater.currentVersionCode(context)
@@ -122,7 +133,9 @@ fun SettingsScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().background(Charcoal).pageEntrance()) {
+    // 根节点保持透明：壁纸与舞台由 MainActivity 的 AppWallpaperBackdrop 统一铺在下面，
+    // 这里再铺一层实色就会把壁纸整块盖住（1.0.10 之前这里写死的是 Charcoal）。
+    Column(modifier = modifier.fillMaxSize().pageEntrance()) {
 
         Row(
             modifier = Modifier
@@ -157,13 +170,61 @@ fun SettingsScreen(
                 .padding(bottom = 28.dp),
         ) {
 
+            // ---------------- 外观 ----------------
+            // 放在最上面：外观是"看一眼就想调"的东西，沉到「关于」旁边没人找得到。
+            SectionTitle(stringResource(R.string.settings_section_appearance))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appSurface(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAppearance = true }
+                        .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = Indigo,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_appearance),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary,
+                        )
+                        Text(
+                            stringResource(
+                                R.string.settings_appearance_summary,
+                                stringResource(appearance.material.labelRes),
+                                stringResource(appearance.wallpaper.labelRes),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
             // ---------------- 语言 ----------------
             SectionTitle(stringResource(R.string.settings_section_language))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.Lg))
-                    .background(CharcoalCard),
+                    .appSurface(),
             ) {
                 AppLanguage.options.forEach { (tag, label) ->
                     Row(
@@ -188,8 +249,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.Lg))
-                    .background(CharcoalCard)
+                    .appSurface()
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -212,8 +272,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.Lg))
-                    .background(CharcoalCard),
+                    .appSurface(),
             ) {
                 Row(
                     modifier = Modifier
@@ -255,8 +314,7 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(Radius.Lg))
-                    .background(CharcoalCard),
+                    .appSurface(),
             ) {
                 InfoRow(label = AppInfo.DISPLAY_NAME, value = versionText)
                 HairLine()

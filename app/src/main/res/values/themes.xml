@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.FuMiVoice" parent="android:Theme.Material.Light.NoActionBar">
+    <!--
+      启动主题（窗口级，不是 Compose 主题）。
+
+      为什么用深色 parent：这份 XML 决定的是**进程启动到第一帧 Compose 之间**那一小段，
+      原来挂在 Theme.Material.Light 上，冷启动会先闪一下白底再切进深靛界面；
+      现在 parent 与 windowBackground 都是深色，开屏和内容同色，视觉上"无缝起来"。
+      注意：它不影响 Compose 里的 MaterialTheme（见 ui/theme/Theme.kt）。
+    -->
+    <style name="Theme.FuMiVoice" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowBackground">@color/app_window_background</item>
+        <item name="android:colorBackground">@color/app_window_background</item>
     </style>
 </resources>

@@ -1,5 +1,7 @@
 package com.fumi.voice.ui
 
+import androidx.activity.compose.BackHandler
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Piano
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.Icon
@@ -89,14 +92,13 @@ import com.fumi.voice.ui.screens.NowPlayingScreen
 import com.fumi.voice.ui.screens.SoundFontScreen
 import com.fumi.voice.ui.screens.CloudSyncScreen
 import com.fumi.voice.ui.screens.SettingsScreen
-import com.fumi.voice.ui.theme.Charcoal
 import com.fumi.voice.ui.theme.Divider
-import com.fumi.voice.ui.theme.CharcoalRaised
 import com.fumi.voice.ui.theme.Indigo
 import com.fumi.voice.ui.theme.Motion
 import com.fumi.voice.ui.theme.TextOnPrimarySoft
 import com.fumi.voice.ui.theme.TextPrimary
 import com.fumi.voice.ui.theme.TextSecondary
+import com.fumi.voice.ui.theme.appBarColor
 import com.fumi.voice.util.DocumentTreeScanner
 import com.fumi.voice.util.findActivity
 import com.fumi.voice.update.AppUpdater
@@ -571,6 +573,7 @@ fun FuMiVoiceApp(
     // 做成覆盖层而不是第 5 个标签页——设置是低频入口，
     // 占掉导航栏一格会稀释「播放/曲库/音色/云同步」这四个高频页。
     if (showSettings) {
+        BackHandler(enabled = true) { showSettings = false }
         SettingsScreen(
             onBack = { showSettings = false },
             onCheckUpdate = { checkUpdate(silent = false) },
@@ -612,7 +615,9 @@ fun FuMiVoiceApp(
     // 这个主界面整块挂入场动画有两个收益：
     // 1. 冷启动时内容随系统开屏淡入，而不是「开屏一闪 → 内容硬切」；
     // 2. 从设置页返回时，它是重新组合的，于是自动获得一次「退回」动画。
-    Column(modifier = Modifier.fillMaxSize().background(Charcoal).pageEntrance(fromRight = false)) {
+    // 根节点透明：壁纸 + 舞台由 MainActivity 的 AppWallpaperBackdrop 统一铺在下面。
+    // 1.0.10 之前这里是实色 Charcoal，改成透明后外观设置才可能"透"出来。
+    Column(modifier = Modifier.fillMaxSize().background(Color.Transparent).pageEntrance(fromRight = false)) {
 
         // 沉浸模式下顶栏一并收掉
         if (!fullscreen) {
@@ -625,6 +630,7 @@ fun FuMiVoiceApp(
                 },
                 onCheckUpdate = { checkUpdate(silent = false) },
                 updateChecking = updateChecking,
+                onOpenSettings = { showSettings = true },
             )
         }
 
@@ -822,7 +828,9 @@ fun FuMiVoiceApp(
         if (!fullscreen) {
             // 与顶栏同一道发丝线：面板之间的分隔只靠线，不靠阴影（电脑端的做法）
             Box(Modifier.fillMaxWidth().height(1.dp).background(Divider))
-            NavigationBar(containerColor = CharcoalRaised) {
+            // 底栏底色跟随外观材质：玻璃/亚克力时半透，壁纸从底下透一点出来
+            val navBarColor = appBarColor()
+            NavigationBar(containerColor = navBarColor) {
                 Tab.entries.forEachIndexed { index, item ->
                     val selected = tab == index
                     // 选中图标轻微放大。M3 的 NavigationBarItem 只动指示器底色，
@@ -911,6 +919,7 @@ private fun AppHeader(
     onHeaderAction: () -> Unit,
     onCheckUpdate: () -> Unit,
     updateChecking: Boolean,
+    onOpenSettings: () -> Unit,
 ) {
     val current = Tab.entries[tab]
 
@@ -919,7 +928,7 @@ private fun AppHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CharcoalRaised)
+            .background(appBarColor())
             .bottomHairline(),
     ) {
         Row(
@@ -987,6 +996,15 @@ private fun AppHeader(
                         tint = if (updateChecking) TextOnPrimarySoft else Color.White,
                     )
                 }
+            }
+
+            // 设置是应用级入口，不该藏在云同步页里。顶栏常驻齿轮，任何标签页都能进。
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = stringResource(R.string.action_settings),
+                    tint = TextOnPrimarySoft,
+                )
             }
         }
     }

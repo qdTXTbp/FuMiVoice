@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与 ui/theme/Theme.kt 的 Charcoal / CharcoalRaised 同值：
+         启动窗口底色、图标背景、系统栏 scrim 都用这一套，避免出现第二种深色。 -->
+    <color name="app_window_background">#0A0D16</color>
+    <color name="app_window_background_raised">#111524</color>
+    <color name="ic_launcher_background">#0A0D16</color>
+</resources>

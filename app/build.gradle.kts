@@ -21,8 +21,8 @@ android {
         applicationId = "com.fumi.voice"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 13
+        versionName = "1.1.0"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -85,12 +85,7 @@ android {
         compose = true
     }
 
-    // 只有 MP3 编码需要原生代码（LAME）；BASS 走官方 Java 绑定，不需要自写 JNI
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-        }
-    }
+    // LAME 使用预编译的 libmp3lame_jni.so（从已有 release APK 提取），本机构建不需要 NDK/CMake。
 
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -30,6 +31,7 @@ import com.fumi.voice.player.ActiveNote
 import com.fumi.voice.ui.theme.WaterfallBackground
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.sin
 
 /** 瀑布中的单个音符。[startTimeMs] / [durationMs] 均已按速度表换算成毫秒。 */
 data class NoteData(
@@ -100,6 +102,8 @@ fun PianoWaterfall(
 
     // 粒子：音符击键时迸发，增强"落点"的反馈
     val particles = remember { mutableListOf<Particle>() }
+    // 落点脉冲：每个新发声的键在击键线上扩散一圈，比单纯粒子更像"音在落下"
+    val pulses = remember { mutableListOf<Pulse>() }
 
     Box(modifier = modifier) {
         Canvas(
@@ -130,6 +134,7 @@ fun PianoWaterfall(
                 beatsPerBar = beatsPerBar,
                 textMeasurer = textMeasurer,
                 particles = particles,
+                pulses = pulses,
                 registerRange = registerRange,
             )
         }
@@ -365,6 +370,14 @@ private class Particle(
     val color: Color,
 )
 
+/** 击键线上的扩散环。 */
+private class Pulse(
+    val x: Float,
+    val width: Float,
+    var life: Float,
+    val color: Color,
+)
+
 private fun DrawScope.drawEmptyHint() {
     drawRect(WaterfallBackground)
 }
@@ -378,6 +391,7 @@ private fun DrawScope.drawWaterfall(
     beatsPerBar: Int,
     textMeasurer: TextMeasurer,
     particles: MutableList<Particle>,
+    pulses: MutableList<Pulse>,
     /** 非空表示这首曲子只用了一个通道，此时按这个音高范围分段着色。 */
     registerRange: Pair<Int, Int>?,
 ) {
@@ -394,8 +408,28 @@ private fun DrawScope.drawWaterfall(
 
     val whiteWidth = layout.whiteWidth(w)
 
-    // ---------- 背景 ----------
-    drawRect(WaterfallBackground)
+    // ---------- 背景：深靛舞台 + 顶部冷光 + 底部压暗 ----------
+    drawRect(
+        Brush.verticalGradient(
+            colors = listOf(Color(0xFF0A1022), Color(0xFF070A13), Color(0xFF04060C)),
+            startY = 0f,
+            endY = h,
+        )
+    )
+    drawRect(
+        Brush.radialGradient(
+            colors = listOf(Color(0x223A6CCC), Color(0x0010182C)),
+            center = Offset(w * 0.5f, h * 0.10f),
+            radius = w * 0.72f,
+        )
+    )
+    // 极淡的星尘：只在空白处给一点纵深，不抢音符
+    for (i in 0..22) {
+        val sx = ((i * 137) % 1000) / 1000f * w
+        val sy = ((i * 271) % 1000) / 1000f * hitY
+        val a = 0.035f + (i % 5) * 0.008f
+        drawCircle(Color(0xFFBBD5FF).copy(alpha = a), radius = if (i % 7 == 0) 1.4f else 0.9f, center = Offset(sx, sy))
+    }
 
     // ---------- C 音竖线（八度参考线） ----------
     for (key in layout.lowKey..layout.highKey) {
@@ -411,6 +445,19 @@ private fun DrawScope.drawWaterfall(
 
     // ---------- 滚动小节线 + 小节号 ----------
     drawBarLines(nowMs, pxPerMs, barPx, w, hitY, textMeasurer)
+
+    // ---------- 发声键的纵向光柱（画在音符下面） ----------
+    for (key in activeKeys) {
+        if (!layout.contains(key)) continue
+        val bx = layout.xOf(key, w)
+        val bw = layout.widthOf(key, w)
+        val beam = Brush.verticalGradient(
+            colors = listOf(Color(0x006C8CFF), Color(0x2E6C8CFF), Color(0x006C8CFF)),
+            startY = 0f,
+            endY = hitY,
+        )
+        drawRect(brush = beam, topLeft = Offset(bx - bw * 0.7f, 0f), size = Size(bw * 2.4f, hitY))
+    }
 
     // ---------- 音符 ----------
     // 只遍历可能可见的一段：从 (now - 最长音符) 起扫到 (now + 屏幕可显示时长)
@@ -451,38 +498,61 @@ private fun DrawScope.drawWaterfall(
         val depth = ((hitY - clippedTop) / hitY).coerceIn(0f, 1f)
         val fade = 1f - depth * depth * 0.55f
 
-        // 正在发声的音符加一层柔光，与 FuFumidi 的处理一致
+        // 柔和外发光：发声时明显，未发声时只留一点体积；三层叠出 bloom 感
         if (sounding) {
             drawRoundRect(
-                color = color.copy(alpha = 0.35f * fade),
-                topLeft = Offset(x - 3f, clippedTop - 3f),
-                size = Size(noteWidth + 6f, height + 6f),
-                cornerRadius = CornerRadius(6f, 6f),
+                color = color.copy(alpha = 0.16f * fade),
+                topLeft = Offset(x - 8f, clippedTop - 8f),
+                size = Size(noteWidth + 16f, height + 16f),
+                cornerRadius = CornerRadius(13f, 13f),
+            )
+            drawRoundRect(
+                color = color.copy(alpha = 0.28f * fade),
+                topLeft = Offset(x - 4f, clippedTop - 4f),
+                size = Size(noteWidth + 8f, height + 8f),
+                cornerRadius = CornerRadius(9f, 9f),
             )
         }
-
+        // 底部落点柔光：音符靠近击键线时变亮，像被下面的键盘接住
+        val nearHit = (1f - (hitY - clippedBottom).coerceAtLeast(0f) / (hitY * 0.22f)).coerceIn(0f, 1f)
+        // 投影，给一块方形的"厚度"
+        drawRoundRect(
+            color = Color.Black.copy(alpha = 0.22f * fade),
+            topLeft = Offset(x + 2.5f, clippedTop + 3f),
+            size = Size(noteWidth, height),
+            cornerRadius = CornerRadius(7f, 7f),
+        )
         drawRoundRect(
             brush = Brush.verticalGradient(
-                colors = listOf(color.copy(alpha = fade), color.copy(alpha = 0.82f * fade)),
+                colors = listOf(
+                    color.copy(alpha = (0.92f + nearHit * 0.08f) * fade),
+                    color.copy(alpha = (0.70f + nearHit * 0.18f) * fade),
+                ),
                 startY = clippedTop,
                 endY = clippedTop + height,
             ),
             topLeft = Offset(x, clippedTop),
             size = Size(noteWidth, height),
-            cornerRadius = CornerRadius(4f, 4f),
+            cornerRadius = CornerRadius(7f, 7f),
         )
-
-        // 右上角一条高光，让方块有体积感
+        // 左侧亮边：给方块一个受光方向，屏幕小时也能分出相邻音符
         drawRoundRect(
-            color = Color.White.copy(alpha = (if (sounding) 0.5f else 0.22f) * fade),
-            topLeft = Offset(x + 1.5f, clippedTop + 1.5f),
-            size = Size(noteWidth - 3f, (height * 0.22f).coerceAtMost(6f)),
-            cornerRadius = CornerRadius(2f, 2f),
+            color = Color.White.copy(alpha = (0.24f + nearHit * 0.24f) * fade),
+            topLeft = Offset(x + 1.4f, clippedTop + 2f),
+            size = Size(1.6f, (height - 4f).coerceAtLeast(1f)),
+            cornerRadius = CornerRadius(1f, 1f),
+        )
+        // 顶部高光
+        drawRoundRect(
+            color = Color.White.copy(alpha = (if (sounding) 0.56f else 0.30f) * fade),
+            topLeft = Offset(x + 2f, clippedTop + 2f),
+            size = Size((noteWidth - 4f).coerceAtLeast(1f), (height * 0.20f).coerceAtMost(7f)),
+            cornerRadius = CornerRadius(3f, 3f),
         )
     }
 
     // ---------- 粒子 ----------
-    updateAndDrawParticles(particles, activeKeys, layout, w, hitY, whiteWidth)
+    updateAndDrawParticles(particles, pulses, activeKeys, layout, w, hitY, whiteWidth)
 
     // ---------- 击键线上的光带 ----------
     // 在击键线上方铺一层向上渐隐的柔光：音符落进这条带子里就是"正在发声"，
@@ -500,13 +570,10 @@ private fun DrawScope.drawWaterfall(
         )
     }
 
-    // ---------- 击键线 ----------
-    drawLine(
-        color = Color(0xFF6C8CFF).copy(alpha = 0.9f),
-        start = Offset(0f, hitY),
-        end = Offset(w, hitY),
-        strokeWidth = 2f,
-    )
+    // ---------- 击键线：芯线 + 两层柔光 ----------
+    drawLine(Color(0x226C8CFF), Offset(0f, hitY), Offset(w, hitY), strokeWidth = 10f)
+    drawLine(Color(0x556C8CFF), Offset(0f, hitY), Offset(w, hitY), strokeWidth = 4f)
+    drawLine(Color(0xFFD9E4FF), Offset(0f, hitY), Offset(w, hitY), strokeWidth = 1.4f)
 
     // ---------- 键盘 ----------
     drawKeyboard(layout, w, hitY, keyboardHeight, activeKeys, textMeasurer)
@@ -576,6 +643,7 @@ private fun DrawScope.drawBarLines(
 
 private fun DrawScope.updateAndDrawParticles(
     particles: MutableList<Particle>,
+    pulses: MutableList<Pulse>,
     activeKeys: Set<Int>,
     layout: PitchLayout,
     w: Float,
@@ -592,6 +660,10 @@ private fun DrawScope.updateAndDrawParticles(
         val x = layout.xOf(key, w) + layout.widthOf(key, w) / 2f
         // 同一键已有近期粒子则跳过，避免每帧重复生成
         if (particles.any { abs(it.x - x) < 2f && it.life > 0.75f }) continue
+        // 落点脉冲：同一键上只保留一个新鲜脉冲
+        if (pulses.none { abs(it.x - x) < 3f && it.life > 0.55f }) {
+            pulses.add(Pulse(x = x, width = layout.widthOf(key, w), life = 1f, color = Color(0xFFB9CBFF)))
+        }
         repeat(3) {
             particles.add(
                 Particle(
@@ -626,6 +698,31 @@ private fun DrawScope.updateAndDrawParticles(
         )
         i--
     }
+
+    // 击键线上的扩散环：每个新音一小圈，像水面涟漪
+    var j = pulses.size - 1
+    while (j >= 0) {
+        val pulse = pulses[j]
+        pulse.life -= 0.045f
+        if (pulse.life <= 0f) {
+            pulses.removeAt(j)
+            j--
+            continue
+        }
+        val age = 1f - pulse.life
+        val ringW = pulse.width * (0.9f + age * 1.4f)
+        drawOval(
+            color = pulse.color.copy(alpha = pulse.life * 0.55f),
+            topLeft = Offset(pulse.x - ringW / 2f, hitY - 3f),
+            size = Size(ringW, 6f + age * 8f),
+        )
+        drawOval(
+            color = pulse.color.copy(alpha = pulse.life * 0.22f),
+            topLeft = Offset(pulse.x - ringW * 0.75f, hitY - 1f),
+            size = Size(ringW * 1.5f, 10f + age * 12f),
+        )
+        j--
+    }
 }
 
 private fun DrawScope.drawKeyboard(
@@ -647,7 +744,17 @@ private fun DrawScope.drawKeyboard(
 
         if (lit) {
             drawRoundRect(
-                color = Color(0xFF9FB4FF),
+                color = Color(0x556C8CFF),
+                topLeft = Offset(x - 2f, hitY - 2f),
+                size = Size(whiteWidthPx + 4f, keyboardHeight + 4f),
+                cornerRadius = CornerRadius(5f, 5f),
+            )
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFFE6EDFF), Color(0xFF9FB4FF), Color(0xFF6C8CFF)),
+                    startY = hitY,
+                    endY = hitY + keyboardHeight,
+                ),
                 topLeft = Offset(x, hitY),
                 size = Size(whiteWidthPx, keyboardHeight),
                 cornerRadius = CornerRadius(3f, 3f),
@@ -694,9 +801,17 @@ private fun DrawScope.drawKeyboard(
         val width = layout.widthOf(key, w)
         val lit = activeKeys.contains(key)
 
+        if (lit) {
+            drawRoundRect(
+                color = Color(0x556C8CFF),
+                topLeft = Offset(x - 2f, hitY - 2f),
+                size = Size(width + 4f, blackHeight + 4f),
+                cornerRadius = CornerRadius(5f, 5f),
+            )
+        }
         drawRoundRect(
             brush = if (lit) {
-                Brush.verticalGradient(listOf(Color(0xFF8FA5FF), Color(0xFF6C8CFF)))
+                Brush.verticalGradient(listOf(Color(0xFFE6EDFF), Color(0xFF8FA5FF), Color(0xFF6C8CFF)))
             } else {
                 Brush.verticalGradient(listOf(Color(0xFF2A3142), Color(0xFF151A26)))
             },

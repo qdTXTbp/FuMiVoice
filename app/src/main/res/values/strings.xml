@@ -17,6 +17,7 @@
     <string name="tab_cloud">云同步</string>
 
     <!-- 通用动作 -->
+    <string name="action_settings">设置</string>
     <string name="action_back">返回</string>
     <string name="action_check">检查</string>
     <string name="state_checking">检查中…</string>
@@ -322,4 +323,39 @@
     <string name="lib_play_count_suffix"> · 播放 %1$d 次</string>
     <string name="lib_played_times">播放 %1$d 次</string>
     <string name="unknown_artist">未知艺术家</string>
+
+    <!-- 外观：材质 / 壁纸（与电脑端 AppearancePanel 对应） -->
+    <string name="material_solid">原生</string>
+    <string name="material_solid_desc">纯色实底，最省电、最稳</string>
+    <string name="material_glass">玻璃</string>
+    <string name="material_glass_desc">亮边 + 高光，透出壁纸</string>
+    <string name="material_acrylic">亚克力</string>
+    <string name="material_acrylic_desc">磨砂颗粒，半透有质感</string>
+    <string name="material_mica">云母</string>
+    <string name="material_mica_desc">低对比发丝线，最适合久看</string>
+    <string name="material_frosted">磨砂</string>
+    <string name="material_frosted_desc">低饱和雾面，适合长时间看</string>
+    <string name="material_velvet">天鹅绒</string>
+    <string name="material_velvet_desc">哑光深色，吸光不反光</string>
+    <string name="wallpaper_none">无（纯色）</string>
+    <string name="wallpaper_aurora">极光</string>
+    <string name="wallpaper_starfield">星空</string>
+    <string name="wallpaper_deep_sea">深海</string>
+    <string name="wallpaper_nebula">星云</string>
+    <string name="wallpaper_grid">渐变网格</string>
+    <string name="wallpaper_dusk">暮色</string>
+    <string name="settings_section_appearance">外观</string>
+    <string name="settings_appearance">材质与壁纸</string>
+    <string name="settings_appearance_summary">%1$s · %2$s</string>
+    <string name="appearance_title">外观</string>
+    <string name="appearance_section_material">材质</string>
+    <string name="appearance_section_wallpaper">壁纸</string>
+    <string name="appearance_section_backdrop">背景</string>
+    <string name="appearance_dim">背景压暗</string>
+    <string name="appearance_percent">%1$d%%</string>
+    <string name="appearance_motion">壁纸缓慢流动</string>
+    <string name="appearance_motion_hint">20fps 轻微漂移；关闭更省电</string>
+    <string name="appearance_saved_hint">选择立即生效并自动保存，随时可以改回纯色。</string>
+    <string name="appearance_preview_card_title">面板预览</string>
+    <string name="appearance_preview_card_sub">深靛舞台 · 原生 / 玻璃 / 亚克力 / 云母 / 磨砂 / 天鹅绒</string>
 </resources>

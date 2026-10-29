@@ -4,11 +4,13 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 
 > Android MIDI player built with Jetpack Compose and the BASS audio stack.
 
+当前版本 **1.1.0**（versionCode 13）。
+
 ## 功能特性
 
 - **MIDI 播放**：支持 `.mid` / `.midi`，内置 BASS 与 BASSMIDI，支持 SoundFont 音色库
-- **音符瀑布**：钢琴卷帘式瀑布流，随播放实时滚动；可进入 **画中画小窗** 只保留瀑布播放
-- **SoundFont 管理**：内置 GeneralUser SoundFont，支持导入 / 下载 / 切换 SF2 音色库
+- **音符瀑布**：钢琴卷帘式瀑布流，随播放实时滚动；1.1.0 增加材质化音符（立体高光/投影/落点脉冲/发声键光柱/击键涟漪）、深靛星空舞台与更柔和的键盘高亮；可进入 **画中画小窗** 只保留瀑布播放
+- **SoundFont 管理**：内置 GeneralUser SoundFont，支持导入 / 下载 / 切换 SF2/SF3 音色库；与电脑端 FuFumidi 使用同一套 GeneralUser 默认、音色命名与 .sf2/.sf3 导入规则，FuFumidi 使用中的音色文件可直接导入
 - **播放列表**：本地曲库、歌单管理、M3U 导入导出、播放历史
   - 曲库批量管理：长按或「选择」进入多选，支持全选、批量加入歌单、批量移除
   - 歌单批量导入：可从曲库多选添加，也可直接导入多个音频 / MIDI 文件
@@ -19,22 +21,28 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
   - AAC / M4A
   - FLAC（MediaCodec + 原生 FLAC 容器）
   - MP3（LAME NDK 构建）
+- **外观（1.1.0 升级）**：设置 → 外观
+  - 材质：**原生 / 玻璃 / 亚克力 / 云母 / 磨砂 / 天鹅绒**六档，卡片、面板、顶栏与底栏一起换
+  - 壁纸：**极光 / 星空 / 深海 / 星云 / 渐变网格 / 暮色**六张，外加「无（纯色）」
+  - 全部由 Canvas 代码绘制，不打包任何位图；可调背景压暗，可选低帧率漂移
+  - 选择立即生效、自动保存（SharedPreferences），重启后保留；默认玻璃 + 极光
+  - 图标：由 FuFumidi logo 的图形与配色重绘的抽象版，自适应/圆形/主题单色
 - **桌面小组件**：锁屏 / 桌面播放控制与瀑布小部件
 - **现代化 UI**：Jetpack Compose + Material 3，全应用动效与手势切换
 - **多语言**：应用内可切换中文 / 英文，全部页面文案成对翻译
 - **横屏与沉浸**：横屏时瀑布独占左侧、控制栏收进右侧独立滚动；沉浸模式整屏只留瀑布
 - **在线音色库**：可下载 GeneralUser GS / FluidR3 GM / SGM-V2.01 等，
   自动走国内镜像并分段并发下载，分卷资源自动合并
-- **设置页**：语言切换、检查更新、开发者信息与下载地址
+- **设置页**：外观、语言切换、检查更新、开发者信息与下载地址
 - **文件关联**：支持从文件管理器直接打开 MIDI 文件
 
 ## 下载
 
-- Release APK：**[FuMiVoice-1.0.7-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.7/FuMiVoice-1.0.7-release.apk)**
-- Release AAB（用于应用商店）：**[FuMiVoice-1.0.7-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.0.7/FuMiVoice-1.0.7-release.aab)**
+- Release APK：**[FuMiVoice-1.1.0-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-release.apk)**
+- Release AAB（用于应用商店）：**[FuMiVoice-1.1.0-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-release.aab)**
 - Release 页面：https://github.com/qdTXTbp/FuMiVoice/releases
 
-> 当前仅提供 `arm64-v8a` 版本，最低支持 Android 7.0（API 24）。
+> 当前仅提供 `arm64-v8a` 版本，最低支持 Android 7.0（API 24），targetSdk 36。
 
 > ⚠️ **仍在使用 1.0.5 及更早版本**：1.0.6 起更换了签名密钥，无法覆盖安装，
 > 会提示「签名不一致」。请先卸载旧版再安装；卸载前建议用云同步把曲库与歌单备份到云端。
@@ -42,19 +50,19 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 
 ## 技术栈
 
-- Kotlin + Jetpack Compose + Material 3
+- Kotlin 1.9.24 + Jetpack Compose（BOM 2024.06）+ Material 3
 - AndroidX Navigation / Lifecycle / Media
 - BASS / BASSMIDI / BASS_FX / BASSFLAC / BASSWV（官方 Java 绑定 + arm64-v8a 动态库）
 - LAME（MP3 编码，NDK/CMake）
-- Gradle 8.x + Android Gradle Plugin 8.5
+- Gradle 8.9 + Android Gradle Plugin 8.5（wrapper 已固定 8.9）
 
 ## 构建
 
 环境要求：
 
-- Android Studio / Android SDK
+- Android Studio / Android SDK，需安装 **platforms;android-36** 与对应 build-tools
 - JDK 17
-- Android NDK + CMake
+- Android NDK + CMake（仅从源码重建 LAME 时需要；本仓库也接受预编译 libmp3lame_jni.so）
 - 可选：`keystore.properties` 用于 release 签名（该文件不会提交到仓库）
 
 ```bash
@@ -71,6 +79,44 @@ Release 包：
 
 产物位于 `app/build/outputs/apk/`。
 
+### 构建注意（实测踩过的两个坑）
+
+1. **Gradle 版本**：`gradle/wrapper/gradle-wrapper.properties` 里当前指向 `gradle-9.3.0`，
+   而 AGP 8.5.0 只支持 Gradle 8.x。若 `./gradlew` 直接报
+   `Minimum supported Gradle version is ...` 或 AGP 内部 `NoSuchMethodError`，
+   把 `distributionUrl` 换回 `gradle-8.9-bin.zip` 即可（本仓库的依赖与脚本对 8.9 是验证过的组合）。
+2. **compileSdk 36 与 AGP 8.5**：AGP 8.5 不认识 API 36，靠 `gradle.properties` 里的
+   `android.suppressUnsupportedCompileSdk=36` 放行。条件允许时应升级到认识 36 的 AGP。
+   另外 `app/build.gradle.kts` 里 `lint.checkReleaseBuilds = false` 是为了绕开本机
+   `lintVital` 崩溃（AGP 8.5 + 该环境的 MessageBus 问题），换正常环境后建议改回 `true`。
+
+### 签名（release）
+
+仓库里**不包含**任何证书。发布签名走 `keystore.properties`，模板见
+[`keystore.properties.example`](keystore.properties.example)：
+
+```bash
+# 1) 生成自己的密钥（只需一次；KEYS 目录不要提交）
+keytool -genkeypair -v \
+  -keystore keystore/fumivoice-release.jks \
+  -alias fumivoice -keyalg RSA -keysize 4096 -validity 10000
+
+# 2) 复制模板并填写四项
+cp keystore.properties.example keystore.properties
+#    storeFile / storePassword / keyAlias / keyPassword
+
+# 3) 出包
+./gradlew :app:assembleRelease
+
+# 4) 核对签名方案（应为 V1/V2/V3，以 V2/V3 为准）
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
+- `storeFile` 相对**仓库根目录**解析（不是 `app/`）；
+- `keystore.properties` 与 `*.jks` 都在 `.gitignore` 里，**不要提交**；
+- 没有 `keystore.properties` 时 `assembleRelease` 仍能构建，只是产出未签名包；
+- 1.0.6 起换过密钥：更早的版本无法覆盖安装，升级前需卸载。
+
 ## 项目结构
 
 ```text
@@ -83,14 +129,40 @@ FuMiVoice/
 │  │  ├─ midi/           # MIDI 解析
 │  │  ├─ player/         # BASS 播放内核与后台服务
 │  │  ├─ soundfont/      # SoundFont 管理 / 下载 / GM 映射
-│  │  ├─ ui/             # Compose UI、瀑布、主题、动效
+│  │  ├─ ui/
+│  │  │  ├─ theme/       # 配色、字号、间距、动效、**外观（材质/壁纸）**
+│  │  │  ├─ wallpaper/   # 程序化壁纸（极光/星空/深海/星云/网格/暮色）
+│  │  │  ├─ screens/     # 曲库 / 播放 / 音色 / 云同步 / 设置 / 外观
+│  │  │  └─ components/  # 通用卡片、列表行、提示条、转场
 │  │  └─ widget/         # 桌面小组件
 │  ├─ src/main/cpp/      # LAME / MP3 JNI
 │  ├─ src/main/jniLibs/  # BASS arm64-v8a 动态库
-│  └─ src/main/assets/   # 内置 SoundFont
-├─ dist/                 # 发布产物（APK / AAB）
+│  ├─ src/main/assets/   # 内置 SoundFont
+│  └─ src/main/res/      # 图标（含自适应图标）、字体、文案
+├─ keystore.properties.example  # 签名配置模板（不含密钥）
 └─ build.gradle.kts
 ```
+
+## 图标
+
+启动器图标由电脑端 `FuFumidi-Source/frontend/src/assets/logo.png` 生成：
+
+- `mipmap-*` 下的 `ic_launcher.png` / `ic_launcher_round.png`：Android 7.x 用的传统图标；
+- `mipmap-anydpi-v26/` 下的自适应图标：背景为深靛径向渐变（`drawable/ic_launcher_background.xml`），
+  前景为 `ic_launcher_foreground.png`（108dp 画布，主体控制在 66/108 安全区内）；
+- 生成脚本不随仓库分发，图标本身随 APK 打包，改动只需替换上面这些资源。
+
+## 外观系统（1.0.11）
+
+| 层 | 位置 | 说明 |
+|---|---|---|
+| 偏好模型 | `ui/theme/Appearance.kt` | `SurfaceMaterial` / `WallpaperKind` / `Appearance`，SharedPreferences 落盘 |
+| 材质 | `ui/theme/AppSurface.kt` | `Modifier.appSurface()`：底色 + 发丝边 + 高光/颗粒 |
+| 壁纸 | `ui/wallpaper/WallpaperArt.kt` | 六张 Canvas 壁纸 + `AppWallpaperBackdrop`（舞台 + 压暗 + 底部渐隐） |
+| 入口 | 设置 → 外观 | 与电脑端 `AppearancePanel` 同构：即时预览、自动保存 |
+
+Compose 没有 CSS 的 `backdrop-filter`，所以"玻璃"靠半透明底色 + 斜向高光 + 亮边模拟，
+而不是真的模糊背景；这也是低端机上不额外掉帧的前提。
 
 ## 第三方组件与许可
 
