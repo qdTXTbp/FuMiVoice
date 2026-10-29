@@ -62,7 +62,7 @@ class CloudSyncManager(private val context: Context) {
         private set
 
     init {
-        token = prefs.getString("token", "") ?: ""
+        token = TokenStore.decrypt(prefs.getString("token", "") ?: "")
         email = prefs.getString("email", "") ?: ""
         deviceId = prefs.getString("deviceId", "") ?: ""
         if (deviceId.isBlank()) {
@@ -420,7 +420,7 @@ class CloudSyncManager(private val context: Context) {
 
     private fun save(t: String, e: String, userId: String) {
         token = t; email = e
-        prefs.edit().putString("token", t).putString("email", e).putString("userId", userId).apply()
+        prefs.edit().putString("token", TokenStore.encrypt(t)).putString("email", e).putString("userId", userId).apply()
     }
 
     private fun clear() {
