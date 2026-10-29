@@ -21,9 +21,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * **字面色值只允许出现在 theme 包里**，其余一律引用 token。
  *
  * 材质说明（Compose 没有 CSS 的 backdrop-filter，无法做真正的背景模糊）：
+ *  - 原生 SOLID   ：不透明实底，回到 1.0.10 的纯色观感
  *  - 玻璃 GLASS   ：低不透明度 + 顶部斜向高光 + 1px 亮边，模拟"隔着玻璃看壁纸"
  *  - 亚克力 ACRYLIC：更高的不透明度 + 细颗粒噪点，模拟磨砂亚克力
  *  - 云母 MICA    ：低对比、几乎不透明、只有一道发丝线，安静、适合长时间阅读
+ *  - 磨砂 FROSTED：低饱和雾面 + 轻微颗粒，适合长时间阅读
  *  - 天鹅绒 VELVET：哑光深色 + 极轻的顶部内发光，像布料吸收光线
  * 这些差异全部落在 [SurfacePalette] 里，卡片/面板只调用 Modifier.appSurface()。
  */
