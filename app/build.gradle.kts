@@ -54,6 +54,17 @@ android {
         }
     }
 
+    // lite：去掉内置 GeneralUser.sf2（31MB），音色库改为在线下载；可单独安装（different applicationId）。
+    flavorDimensions += "edition"
+    productFlavors {
+        create("full") { dimension = "edition" }
+        create("lite") {
+            dimension = "edition"
+            applicationIdSuffix = ".lite"
+            versionNameSuffix = "-lite"
+        }
+    }
+
     buildTypes {
         release {
             // BASS 官方绑定靠 JNI FindClass/GetFieldID 反射 Java 类名与字段名，
