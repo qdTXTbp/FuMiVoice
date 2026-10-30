@@ -226,7 +226,7 @@ class PlaybackService : Service() {
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_music)
             .setContentTitle(track?.title ?: "未在播放")
-            .setContentText(state.soundFontName?.let { "音色：${it.substringBeforeLast('.')}" } ?: "FuMiVoice")
+            .setContentText(state.soundFontName?.let { getString(R.string.notification_soundfont, it.substringBeforeLast('.')) } ?: "FuMiVoice")
             .setContentIntent(openAppIntent())
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(playing)
@@ -245,7 +245,7 @@ class PlaybackService : Service() {
                         this,
                         if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
                     ),
-                    if (playing) "暂停" else "播放",
+                    if (playing) getString(R.string.notification_pause) else getString(R.string.notification_play),
                     serviceIntent(ACTION_PLAY_PAUSE, 2),
                 ).build()
             )

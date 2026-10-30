@@ -362,4 +362,7 @@
     <string name="notification_channel_desc">显示当前 MIDI 曲目与播放控制</string>
     <string name="notification_not_playing">未在播放</string>
     <string name="export_cancel">取消导出</string>
+    <string name="notification_soundfont">音色：%1$s</string>
+    <string name="notification_play">播放</string>
+    <string name="notification_pause">暂停</string>
 </resources>

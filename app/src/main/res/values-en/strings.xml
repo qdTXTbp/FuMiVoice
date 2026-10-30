@@ -362,4 +362,7 @@
     <string name="notification_channel_desc">Show the current MIDI track and playback controls</string>
     <string name="notification_not_playing">Nothing playing</string>
     <string name="export_cancel">Cancel export</string>
+    <string name="notification_soundfont">SoundFont: %1$s</string>
+    <string name="notification_play">Play</string>
+    <string name="notification_pause">Pause</string>
 </resources>
