@@ -56,10 +56,11 @@ android {
 
     buildTypes {
         release {
-            // 故意不开混淆：BASS 官方绑定靠原生侧 FindClass / GetFieldID 反射
-            // Java 类名与字段名，R8 一改名，JNI 查找就会在运行时失败——
-            // 而且是编译期完全不报错的那种失败。
-            isMinifyEnabled = false
+            // BASS 官方绑定靠 JNI FindClass/GetFieldID 反射 Java 类名与字段名，
+            // 所以 proguard-rules.pro 对 com.fumi.voice.** 与 com.un4seen.** 全量 keep；
+            // 只让 R8 收缩 Compose/AndroidX 等可安全裁剪的库。
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseKey) signingConfig = signingConfigs.getByName("release")
         }
     }
