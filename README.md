@@ -10,7 +10,7 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 
 - **MIDI 播放**：支持 `.mid` / `.midi`，内置 BASS 与 BASSMIDI，支持 SoundFont 音色库
 - **音符瀑布**：钢琴卷帘式瀑布流，随播放实时滚动；1.1.0 增加材质化音符（立体高光/投影/落点脉冲/发声键光柱/击键涟漪）、深靛星空舞台与更柔和的键盘高亮；可进入 **画中画小窗** 只保留瀑布播放
-- **SoundFont 管理**：内置 GeneralUser SoundFont，支持导入 / 下载 / 切换 SF2/SF3 音色库；与电脑端 FuFumidi 使用同一套 GeneralUser 默认、音色命名与 .sf2/.sf3 导入规则，FuFumidi 使用中的音色文件可直接导入
+- **SoundFont 管理**：full 版内置 GeneralUser SoundFont；lite 版不内置，首次使用在「音色 → 在线下载」取 GeneralUser（29.8MB）。支持导入 / 下载 / 切换 SF2/SF3 音色库；与电脑端 FuFumidi 使用同一套音色命名与 .sf2/.sf3 导入规则，FuFumidi 使用中的音色文件可直接导入
 - **播放列表**：本地曲库、歌单管理、M3U 导入导出、播放历史
   - 曲库批量管理：长按或「选择」进入多选，支持全选、批量加入歌单、批量移除
   - 歌单批量导入：可从曲库多选添加，也可直接导入多个音频 / MIDI 文件
@@ -21,6 +21,7 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
   - AAC / M4A
   - FLAC（MediaCodec + 原生 FLAC 容器）
   - MP3（LAME NDK 构建）
+  - 导出可取消，取消后清理半截文件
 - **外观（1.1.0 升级）**：设置 → 外观
   - 材质：**原生 / 玻璃 / 亚克力 / 云母 / 磨砂 / 天鹅绒**六档，卡片、面板、顶栏与底栏一起换
   - 壁纸：**极光 / 星空 / 深海 / 星云 / 渐变网格 / 暮色**六张，外加「无（纯色）」
@@ -28,6 +29,8 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
   - 选择立即生效、自动保存（SharedPreferences），重启后保留；默认玻璃 + 极光
   - 图标：直接使用 FuFumidi 当前立绘（mascot.png），生成传统/圆形/自适应/主题单色图标
 - **桌面小组件**：锁屏 / 桌面播放控制与瀑布小部件
+- **安全与体积**：云同步 token 使用 Android Keystore AES/GCM 加密、关闭 allowBackup；release 开启 R8，BASS JNI 类全量 keep
+- **通知栏**：频道名、音色、播放/暂停等文案中英文资源化
 - **现代化 UI**：Jetpack Compose + Material 3，全应用动效与手势切换
 - **多语言**：应用内可切换中文 / 英文，全部页面文案成对翻译
 - **横屏与沉浸**：横屏时瀑布独占左侧、控制栏收进右侧独立滚动；沉浸模式整屏只留瀑布
@@ -40,9 +43,11 @@ FuMiVoice 是一个面向 Android 的本地 MIDI 播放器，使用 Jetpack Comp
 
 - Release APK：**[FuMiVoice-1.1.0-release.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-release.apk)**
 - Release AAB（用于应用商店）：**[FuMiVoice-1.1.0-release.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-release.aab)**
+- lite APK（无内置 GeneralUser，3.6MB）：**[FuMiVoice-1.1.0-lite.apk](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-lite.apk)**
+- lite AAB：**[FuMiVoice-1.1.0-lite.aab](https://github.com/qdTXTbp/FuMiVoice/releases/download/v1.1.0/FuMiVoice-1.1.0-lite.aab)**
 - Release 页面：https://github.com/qdTXTbp/FuMiVoice/releases
 
-> 当前仅提供 `arm64-v8a` 版本，最低支持 Android 7.0（API 24），targetSdk 36。
+> full 版 31MB、lite 版 3.6MB；均仅提供 `arm64-v8a`，最低支持 Android 7.0（API 24），targetSdk 36。
 
 > ⚠️ **仍在使用 1.0.5 及更早版本**：1.0.6 起更换了签名密钥，无法覆盖安装，
 > 会提示「签名不一致」。请先卸载旧版再安装；卸载前建议用云同步把曲库与歌单备份到云端。
@@ -74,17 +79,26 @@ cd FuMiVoice
 Release 包：
 
 ```bash
-./gradlew :app:assembleRelease
+# full：内置 GeneralUser.sf2，约 31MB
+./gradlew :app:assembleFullRelease
+# lite：无内置音色库，约 3.6MB，独立包名 .lite
+./gradlew :app:assembleLiteRelease
 ```
 
-产物位于 `app/build/outputs/apk/`。
+产物位于 `app/build/outputs/apk/full/release/` 与 `app/build/outputs/apk/lite/release/`。
+
+单测 / CI：
+
+```bash
+./gradlew :app:testFullReleaseUnitTest
+```
+
+仓库带 `.github/workflows/android-ci.yml`，push/PR 会跑单测并构建 full/lite release。
 
 ### 构建注意（实测踩过的两个坑）
 
-1. **Gradle 版本**：`gradle/wrapper/gradle-wrapper.properties` 里当前指向 `gradle-9.3.0`，
-   而 AGP 8.5.0 只支持 Gradle 8.x。若 `./gradlew` 直接报
-   `Minimum supported Gradle version is ...` 或 AGP 内部 `NoSuchMethodError`，
-   把 `distributionUrl` 换回 `gradle-8.9-bin.zip` 即可（本仓库的依赖与脚本对 8.9 是验证过的组合）。
+1. **Gradle 版本**：wrapper 已固定 `gradle-8.9-bin.zip`（AGP 8.5.0 只支持 Gradle 8.x）。
+   若用系统 Gradle 构建，请确保是 8.9，不要用 Gradle 9。
 2. **compileSdk 36 与 AGP 8.5**：AGP 8.5 不认识 API 36，靠 `gradle.properties` 里的
    `android.suppressUnsupportedCompileSdk=36` 放行。条件允许时应升级到认识 36 的 AGP。
    另外 `app/build.gradle.kts` 里 `lint.checkReleaseBuilds = false` 是为了绕开本机
@@ -106,15 +120,15 @@ cp keystore.properties.example keystore.properties
 #    storeFile / storePassword / keyAlias / keyPassword
 
 # 3) 出包
-./gradlew :app:assembleRelease
+./gradlew :app:assembleFullRelease
 
 # 4) 核对签名方案（应为 V1/V2/V3，以 V2/V3 为准）
-apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+apksigner verify --print-certs app/build/outputs/apk/full/release/app-full-release.apk
 ```
 
 - `storeFile` 相对**仓库根目录**解析（不是 `app/`）；
 - `keystore.properties` 与 `*.jks` 都在 `.gitignore` 里，**不要提交**；
-- 没有 `keystore.properties` 时 `assembleRelease` 仍能构建，只是产出未签名包；
+- 没有 `keystore.properties` 时 `assembleFullRelease` / `assembleLiteRelease` 仍能构建，只是产出未签名包；
 - 1.0.6 起换过密钥：更早的版本无法覆盖安装，升级前需卸载。
 
 ## 项目结构
@@ -137,7 +151,7 @@ FuMiVoice/
 │  │  └─ widget/         # 桌面小组件
 │  ├─ src/main/cpp/      # LAME / MP3 JNI
 │  ├─ src/main/jniLibs/  # BASS arm64-v8a 动态库
-│  ├─ src/main/assets/   # 内置 SoundFont
+│  ├─ src/full/assets/    # full 版内置 GeneralUser.sf2（lite 不包含）
 │  └─ src/main/res/      # 图标（含自适应图标）、字体、文案
 ├─ keystore.properties.example  # 签名配置模板（不含密钥）
 └─ build.gradle.kts
